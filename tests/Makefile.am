@@ -1,4 +1,4 @@
-SUBDIRS = . hello same_line_tracepoint snprintf
+SUBDIRS = . hello same_line_tracepoint snprintf benchmark
 
 if CXX_WORKS
 SUBDIRS += hello.cxx

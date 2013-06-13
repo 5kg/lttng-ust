@@ -1,9 +1,4 @@
-UST Benchmark
+LTTng-UST benchmark
 
-INSTALLATION INSTRUCTIONS:
-
-  - run ./install  to install and compile UST/benchmark
+INSTRUCTIONS:
   - run ./run  to perform the benchmark
-
-
-The trace files will be automatically saved at $HOME/.usttraces
