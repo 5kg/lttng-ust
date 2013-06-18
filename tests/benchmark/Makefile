@@ -1,7 +1,6 @@
 CC=gcc
 CFLAGS=-O3 -Wall -I.
-LFLAGS=-lpthread -ldl -llttng-ust -Wl,--no-as-needed
-
+LFLAGS=-Wl,--no-as-needed -lpthread -ldl -llttng-ust 
 all: bench1 bench2
 
 bench1: bench.c
