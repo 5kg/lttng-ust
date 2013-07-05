@@ -90,7 +90,7 @@ AC_CACHE_CHECK([whether the C++ compiler works],
 				struct foo { int a; int b; };
 				void fct(void)
 				{
-					struct foo f = {.a = 0, .b = 1};
+					struct foo f = { .a = 0, .b = 1 };
 				}
 			]])],[
 				rw_cv_prog_cxx_works=yes

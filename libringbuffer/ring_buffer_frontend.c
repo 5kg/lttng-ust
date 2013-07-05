@@ -1107,7 +1107,7 @@ retry:
 	 */
 	if (((commit_count - chan->backend.subbuf_size)
 	     & chan->commit_count_mask)
-	    - (buf_trunc(consumed_cur, chan)
+	    - (buf_trunc(consumed, chan)
 	       >> chan->backend.num_subbuf_order)
 	    != 0)
 		goto nodata;
@@ -1116,7 +1116,7 @@ retry:
 	 * Check that we are not about to read the same subbuffer in
 	 * which the writer head is.
 	 */
-	if (subbuf_trunc(write_offset, chan) - subbuf_trunc(consumed_cur, chan)
+	if (subbuf_trunc(write_offset, chan) - subbuf_trunc(consumed, chan)
 	    == 0)
 		goto nodata;
 
@@ -1418,8 +1418,10 @@ void lib_ring_buffer_switch_new_start(struct lttng_ust_lib_ring_buffer *buf,
 /*
  * lib_ring_buffer_switch_new_end: finish switching current subbuffer
  *
- * The only remaining threads could be the ones with pending commits. They will
- * have to do the deliver themselves.
+ * Calls subbuffer_set_data_size() to set the data size of the current
+ * sub-buffer. We do not need to perform check_deliver nor commit here,
+ * since this task will be done by the "commit" of the event for which
+ * we are currently doing the space reservation.
  */
 static
 void lib_ring_buffer_switch_new_end(struct lttng_ust_lib_ring_buffer *buf,
@@ -1429,26 +1431,12 @@ void lib_ring_buffer_switch_new_end(struct lttng_ust_lib_ring_buffer *buf,
 				    struct lttng_ust_shm_handle *handle)
 {
 	const struct lttng_ust_lib_ring_buffer_config *config = &chan->backend.config;
-	unsigned long endidx = subbuf_index(offsets->end - 1, chan);
-	unsigned long commit_count, padding_size, data_size;
+	unsigned long endidx, data_size;
 
+	endidx = subbuf_index(offsets->end - 1, chan);
 	data_size = subbuf_offset(offsets->end - 1, chan) + 1;
-	padding_size = chan->backend.subbuf_size - data_size;
 	subbuffer_set_data_size(config, &buf->backend, endidx, data_size,
 				handle);
-
-	/*
-	 * Order all writes to buffer before the commit count update that will
-	 * determine that the subbuffer is full.
-	 */
-	cmm_smp_wmb();
-	v_add(config, padding_size, &shmp_index(handle, buf->commit_hot, endidx)->cc);
-	commit_count = v_read(config, &shmp_index(handle, buf->commit_hot, endidx)->cc);
-	lib_ring_buffer_check_deliver(config, buf, chan, offsets->end - 1,
-				  commit_count, endidx, handle);
-	lib_ring_buffer_write_commit_counter(config, buf, chan, endidx,
-					     offsets->end, commit_count,
-					     padding_size, handle);
 }
 
 /*
@@ -1461,10 +1449,11 @@ int lib_ring_buffer_try_switch_slow(enum switch_mode mode,
 				    struct lttng_ust_lib_ring_buffer *buf,
 				    struct channel *chan,
 				    struct switch_offsets *offsets,
-				    uint64_t *tsc)
+				    uint64_t *tsc,
+				    struct lttng_ust_shm_handle *handle)
 {
 	const struct lttng_ust_lib_ring_buffer_config *config = &chan->backend.config;
-	unsigned long off;
+	unsigned long off, reserve_commit_diff;
 
 	offsets->begin = v_read(config, &buf->offset);
 	offsets->old = offsets->begin;
@@ -1489,36 +1478,69 @@ int lib_ring_buffer_try_switch_slow(enum switch_mode mode,
 	 * timestamps) are visible to the reader. This is required for
 	 * quiescence guarantees for the fusion merge.
 	 */
-	if (mode == SWITCH_FLUSH || off > 0) {
-		if (caa_unlikely(off == 0)) {
-			/*
-			 * A final flush that encounters an empty
-			 * sub-buffer cannot switch buffer if a
-			 * reader is located within this sub-buffer.
-			 * Anyway, the purpose of final flushing of a
-			 * sub-buffer at offset 0 is to handle the case
-			 * of entirely empty stream.
-			 */
-			if (caa_unlikely(subbuf_trunc(offsets->begin, chan)
-					 - subbuf_trunc((unsigned long)
-					     uatomic_read(&buf->consumed), chan)
-					>= chan->backend.buf_size))
-				return -1;
-			/*
-			 * The client does not save any header information.
-			 * Don't switch empty subbuffer on finalize, because it
-			 * is invalid to deliver a completely empty subbuffer.
-			 */
-			if (!config->cb.subbuffer_header_size())
-				return -1;
-			/*
-			 * Need to write the subbuffer start header on finalize.
-			 */
-			offsets->switch_old_start = 1;
-		}
-		offsets->begin = subbuf_align(offsets->begin, chan);
-	} else
+	if (mode != SWITCH_FLUSH && !off)
 		return -1;	/* we do not have to switch : buffer is empty */
+
+	if (caa_unlikely(off == 0)) {
+		unsigned long sb_index, commit_count;
+
+		/*
+		 * We are performing a SWITCH_FLUSH. At this stage, there are no
+		 * concurrent writes into the buffer.
+		 *
+		 * The client does not save any header information.  Don't
+		 * switch empty subbuffer on finalize, because it is invalid to
+		 * deliver a completely empty subbuffer.
+		 */
+		if (!config->cb.subbuffer_header_size())
+			return -1;
+
+		/* Test new buffer integrity */
+		sb_index = subbuf_index(offsets->begin, chan);
+		commit_count = v_read(config,
+				&shmp_index(handle, buf->commit_cold,
+					sb_index)->cc_sb);
+		reserve_commit_diff =
+		  (buf_trunc(offsets->begin, chan)
+		   >> chan->backend.num_subbuf_order)
+		  - (commit_count & chan->commit_count_mask);
+		if (caa_likely(reserve_commit_diff == 0)) {
+			/* Next subbuffer not being written to. */
+			if (caa_unlikely(config->mode != RING_BUFFER_OVERWRITE &&
+				subbuf_trunc(offsets->begin, chan)
+				 - subbuf_trunc((unsigned long)
+				     uatomic_read(&buf->consumed), chan)
+				>= chan->backend.buf_size)) {
+				/*
+				 * We do not overwrite non consumed buffers
+				 * and we are full : don't switch.
+				 */
+				return -1;
+			} else {
+				/*
+				 * Next subbuffer not being written to, and we
+				 * are either in overwrite mode or the buffer is
+				 * not full. It's safe to write in this new
+				 * subbuffer.
+				 */
+			}
+		} else {
+			/*
+			 * Next subbuffer reserve offset does not match the
+			 * commit offset. Don't perform switch in
+			 * producer-consumer and overwrite mode.  Caused by
+			 * either a writer OOPS or too many nested writes over a
+			 * reserve/commit pair.
+			 */
+			return -1;
+		}
+
+		/*
+		 * Need to write the subbuffer start header on finalize.
+		 */
+		offsets->switch_old_start = 1;
+	}
+	offsets->begin = subbuf_align(offsets->begin, chan);
 	/* Note: old points to the next subbuf at offset 0 */
 	offsets->end = offsets->begin;
 	return 0;
@@ -1548,7 +1570,7 @@ void lib_ring_buffer_switch_slow(struct lttng_ust_lib_ring_buffer *buf, enum swi
 	 */
 	do {
 		if (lib_ring_buffer_try_switch_slow(mode, buf, chan, &offsets,
-						    &tsc))
+						    &tsc, handle))
 			return;	/* Switch not needed */
 	} while (v_cmpxchg(config, &buf->offset, offsets.old, offsets.end)
 		 != offsets.old);
@@ -1598,9 +1620,10 @@ int lib_ring_buffer_try_reserve_slow(struct lttng_ust_lib_ring_buffer *buf,
 {
 	const struct lttng_ust_lib_ring_buffer_config *config = &chan->backend.config;
 	struct lttng_ust_shm_handle *handle = ctx->handle;
-	unsigned long reserve_commit_diff;
+	unsigned long reserve_commit_diff, offset_cmp;
 
-	offsets->begin = v_read(config, &buf->offset);
+retry:
+	offsets->begin = offset_cmp = v_read(config, &buf->offset);
 	offsets->old = offsets->begin;
 	offsets->switch_new_start = 0;
 	offsets->switch_new_end = 0;
@@ -1632,7 +1655,7 @@ int lib_ring_buffer_try_reserve_slow(struct lttng_ust_lib_ring_buffer *buf,
 		}
 	}
 	if (caa_unlikely(offsets->switch_new_start)) {
-		unsigned long sb_index;
+		unsigned long sb_index, commit_count;
 
 		/*
 		 * We are typically not filling the previous buffer completely.
@@ -1643,12 +1666,32 @@ int lib_ring_buffer_try_reserve_slow(struct lttng_ust_lib_ring_buffer *buf,
 				 + config->cb.subbuffer_header_size();
 		/* Test new buffer integrity */
 		sb_index = subbuf_index(offsets->begin, chan);
+		/*
+		 * Read buf->offset before buf->commit_cold[sb_index].cc_sb.
+		 * lib_ring_buffer_check_deliver() has the matching
+		 * memory barriers required around commit_cold cc_sb
+		 * updates to ensure reserve and commit counter updates
+		 * are not seen reordered when updated by another CPU.
+		 */
+		cmm_smp_rmb();
+		commit_count = v_read(config,
+				&shmp_index(handle, buf->commit_cold,
+					sb_index)->cc_sb);
+		/* Read buf->commit_cold[sb_index].cc_sb before buf->offset. */
+		cmm_smp_rmb();
+		if (caa_unlikely(offset_cmp != v_read(config, &buf->offset))) {
+			/*
+			 * The reserve counter have been concurrently updated
+			 * while we read the commit counter. This means the
+			 * commit counter we read might not match buf->offset
+			 * due to concurrent update. We therefore need to retry.
+			 */
+			goto retry;
+		}
 		reserve_commit_diff =
 		  (buf_trunc(offsets->begin, chan)
 		   >> chan->backend.num_subbuf_order)
-		  - ((unsigned long) v_read(config,
-					    &shmp_index(handle, buf->commit_cold, sb_index)->cc_sb)
-		     & chan->commit_count_mask);
+		  - (commit_count & chan->commit_count_mask);
 		if (caa_likely(reserve_commit_diff == 0)) {
 			/* Next subbuffer not being written to. */
 			if (caa_unlikely(config->mode != RING_BUFFER_OVERWRITE &&
@@ -1683,7 +1726,8 @@ int lib_ring_buffer_try_reserve_slow(struct lttng_ust_lib_ring_buffer *buf,
 
 			/*
 			 * Next subbuffer reserve offset does not match the
-			 * commit offset. Drop record in producer-consumer and
+			 * commit offset, and this did not involve update to the
+			 * reserve counter. Drop record in producer-consumer and
 			 * overwrite mode. Caused by either a writer OOPS or too
 			 * many nested writes over a reserve/commit pair.
 			 */
