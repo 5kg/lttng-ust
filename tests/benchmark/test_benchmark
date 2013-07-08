@@ -38,5 +38,5 @@ done
 lttng -q stop
 lttng -q destroy
 
-pass "Trace validation"
-diag "Average tracing overhead per event is $(echo "( ($time_trace) - ($time_notrace) ) / $ITERS / $NR_EVENTS" | bc -l)s"
+pass "Trace benchmark"
+diag "Average tracing overhead per event is $(echo "scale=6;( ($time_trace) - ($time_notrace) ) / $ITERS / $NR_EVENTS" | bc -l)s"
