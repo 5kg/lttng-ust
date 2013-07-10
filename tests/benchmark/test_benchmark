@@ -2,7 +2,7 @@
 
 CURDIR=$(dirname $0)/
 TESTDIR=$CURDIR/..
-source $TESTDIR/tap.sh
+source $TESTDIR/utils/utils.sh
 
 plan_tests 1
 
