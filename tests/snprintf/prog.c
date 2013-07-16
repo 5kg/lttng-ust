@@ -19,7 +19,7 @@
 #include <string.h>
 #include "ust_snprintf.h"
 
-#include "tap/tap.h"
+#include "tap.h"
 
 int main()
 {
