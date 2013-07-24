@@ -7,5 +7,4 @@ prog_SOURCES = prog.c
 prog_LDADD = $(top_builddir)/snprintf/libustsnprintf.la \
 	$(LIBTAP)
 
-noinst_SCRIPT = test_snprintf
-EXTRA_DIST = test_snprintf
+dist_noinst_SCRIPTS = test_snprintf
