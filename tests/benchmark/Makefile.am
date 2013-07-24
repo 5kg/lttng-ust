@@ -7,11 +7,13 @@ bench2_SOURCES = bench.c tp.c ust_tests_benchmark.h
 bench2_LDADD = $(top_builddir)/liblttng-ust/liblttng-ust.la
 bench2_CFLAGS = -DTRACING
 
+dist_noinst_SCRIPTS = test_benchmark ptime
+
 if LTTNG_UST_BUILD_WITH_LIBDL
 bench1_LDADD += -ldl
 bench2_LDADD += -ldl
 endif
 if LTTNG_UST_BUILD_WITH_LIBC_DL
 bench1_LDADD += -lc
-bench2_LDADD += -ldl
+bench2_LDADD += -lc
 endif
