@@ -25,6 +25,7 @@
 #ifdef __linux__
 
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #define LTTNG_UST_PROCNAME_LEN 17
 
@@ -32,6 +33,18 @@ static inline
 void lttng_ust_getprocname(char *name)
 {
 	(void) prctl(PR_GET_NAME, (unsigned long) name, 0, 0, 0);
+}
+
+static inline
+int lttng_ust_getexecpath(char *path)
+{
+	ssize_t len;
+
+	if ((len = readlink("/proc/self/exe", path, PATH_MAX)) != -1) {
+		path[len] = '\0';
+		return len;
+	}
+	return -1;
 }
 
 #elif defined(__FreeBSD__)
