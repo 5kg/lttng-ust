@@ -875,6 +875,15 @@ long lttng_channel_cmd(int objd, unsigned int cmd, unsigned long arg,
 	{
 		struct lttng_ust_event *event_param =
 			(struct lttng_ust_event *) arg;
+
+		switch (event_param->instrumentation) {
+			case LTTNG_UST_PROBE:
+			case LTTNG_UST_FUNCTION:
+				return lttng_abi_create_enabler(objd, event_param,
+						owner, LTTNG_ENABLER_DYNAMIC);
+			default: break;
+		}
+
 		if (event_param->name[strlen(event_param->name) - 1] == '*') {
 			/* If ends with wildcard, create wildcard. */
 			return lttng_abi_create_enabler(objd, event_param,

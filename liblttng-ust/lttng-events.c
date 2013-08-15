@@ -442,17 +442,12 @@ exist:
 }
 
 static
-int lttng_desc_match_wildcard_enabler(const struct lttng_event_desc *desc,
+int lttng_desc_loglevel_match_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
 	int loglevel = 0;
 	unsigned int has_loglevel = 0;
 
-	assert(enabler->type == LTTNG_ENABLER_WILDCARD);
-	/* Compare excluding final '*' */
-	if (strncmp(desc->name, enabler->event_param.name,
-			strlen(enabler->event_param.name) - 1))
-		return 0;
 	if (desc->loglevel) {
 		loglevel = *(*desc->loglevel);
 		has_loglevel = 1;
@@ -466,25 +461,40 @@ int lttng_desc_match_wildcard_enabler(const struct lttng_event_desc *desc,
 }
 
 static
+int lttng_desc_match_wildcard_enabler(const struct lttng_event_desc *desc,
+		struct lttng_enabler *enabler)
+{
+	assert(enabler->type == LTTNG_ENABLER_WILDCARD);
+	/* Compare excluding final '*' */
+	if (strncmp(desc->name, enabler->event_param.name,
+			strlen(enabler->event_param.name) - 1))
+		return 0;
+	return lttng_desc_loglevel_match_enabler(desc, enabler);
+}
+
+static
 int lttng_desc_match_event_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
-	int loglevel = 0;
-	unsigned int has_loglevel = 0;
-
 	assert(enabler->type == LTTNG_ENABLER_EVENT);
 	if (strcmp(desc->name, enabler->event_param.name))
 		return 0;
-	if (desc->loglevel) {
-		loglevel = *(*desc->loglevel);
-		has_loglevel = 1;
-	}
-	if (!lttng_loglevel_match(loglevel,
-			has_loglevel,
-			enabler->event_param.loglevel_type,
-			enabler->event_param.loglevel))
+	return lttng_desc_loglevel_match_enabler(desc, enabler);
+}
+
+static
+int lttng_desc_match_dynamic_enabler(const struct lttng_event_desc *desc,
+		struct lttng_enabler *enabler)
+{
+	char exec_path[PATH_MAX];
+
+	assert(enabler->type == LTTNG_ENABLER_DYNAMIC);
+	if (lttng_ust_getexecpath(exec_path) == -1)
 		return 0;
-	return 1;
+	if (strcmp(exec_path, enabler->event_param.u.object_name))
+		return 0;
+	/* TODO: match shared libraries */
+	return lttng_desc_loglevel_match_enabler(desc, enabler);
 }
 
 static
@@ -496,6 +506,8 @@ int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 		return lttng_desc_match_wildcard_enabler(desc, enabler);
 	case LTTNG_ENABLER_EVENT:
 		return lttng_desc_match_event_enabler(desc, enabler);
+	case LTTNG_ENABLER_DYNAMIC:
+		return lttng_desc_match_dynamic_enabler(desc, enabler);
 	default:
 		return -EINVAL;
 	}
