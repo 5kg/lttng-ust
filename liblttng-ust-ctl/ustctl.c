@@ -196,6 +196,8 @@ int ustctl_create_event(int sock, struct lttng_ust_event *ev,
 	lum.cmd = LTTNG_UST_EVENT;
 	strncpy(lum.u.event.name, ev->name,
 		LTTNG_UST_SYM_NAME_LEN);
+	strncpy(lum.u.event.u.object_name, ev->u.object_name,
+		PATH_MAX);
 	lum.u.event.instrumentation = ev->instrumentation;
 	lum.u.event.loglevel_type = ev->loglevel_type;
 	lum.u.event.loglevel = ev->loglevel;
