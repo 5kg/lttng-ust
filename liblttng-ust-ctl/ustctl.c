@@ -200,7 +200,7 @@ int ustctl_create_event(int sock, struct lttng_ust_event *ev,
 	lum.u.event.u.probe.offset = ev->u.probe.offset;
 	strncpy(lum.u.event.u.probe.symbol_name, ev->u.probe.symbol_name,
 		LTTNG_UST_SYM_NAME_LEN);
-	strncpy(lum.u.event.u.probe.object_name, ev->u.probe.object_name,
+	strncpy(lum.u.event.u.probe.object_path, ev->u.probe.object_path,
 		PATH_MAX);
 	lum.u.event.instrumentation = ev->instrumentation;
 	lum.u.event.loglevel_type = ev->loglevel_type;
