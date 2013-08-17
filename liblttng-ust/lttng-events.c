@@ -491,7 +491,7 @@ int lttng_desc_match_dynamic_enabler(const struct lttng_event_desc *desc,
 	assert(enabler->type == LTTNG_ENABLER_DYNAMIC);
 	if (lttng_ust_getexecpath(exec_path) == -1)
 		return 0;
-	if (strcmp(exec_path, enabler->event_param.u.object_name))
+	if (strcmp(exec_path, enabler->event_param.u.probe.object_name))
 		return 0;
 	/* TODO: match shared libraries */
 	return lttng_desc_loglevel_match_enabler(desc, enabler);
