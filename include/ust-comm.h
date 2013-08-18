@@ -208,6 +208,14 @@ int ustcomm_send_reg_msg(int sock,
  * Returns 0 on success, negative error value on error.
  * Returns -EPIPE or -ECONNRESET if other end has hung up.
  */
+int ustcomm_instrument_probe(int sock,
+	int session_objd,			/* session descriptor */
+	const struct lttng_ust_event *uevent);	/* userspace event */
+
+/*
+ * Returns 0 on success, negative error value on error.
+ * Returns -EPIPE or -ECONNRESET if other end has hung up.
+ */
 int ustcomm_register_event(int sock,
 	int session_objd,		/* session descriptor */
 	int channel_objd,		/* channel descriptor */

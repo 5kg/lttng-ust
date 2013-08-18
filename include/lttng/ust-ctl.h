@@ -230,6 +230,7 @@ enum ustctl_socket_type {
 enum ustctl_notify_cmd {
 	USTCTL_NOTIFY_CMD_EVENT = 0,
 	USTCTL_NOTIFY_CMD_CHANNEL = 1,
+	USTCTL_NOTIFY_CMD_INSTRUMENT = 2,
 };
 
 enum ustctl_channel_header {
