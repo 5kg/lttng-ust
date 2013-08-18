@@ -884,6 +884,78 @@ error_type:
 /*
  * Returns 0 on success, negative error value on error.
  */
+int ustcomm_instrument_probe(int sock,
+	int session_objd,			/* session descriptor */
+	const struct lttng_ust_event *uevent)	/* userspace event */
+{
+	ssize_t len;
+	struct {
+		struct ustcomm_notify_hdr header;
+		struct ustcomm_notify_event_msg m;
+	} msg;
+	struct {
+		struct ustcomm_notify_hdr header;
+		struct ustcomm_notify_event_reply r;
+	} reply;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.header.notify_cmd = USTCTL_NOTIFY_CMD_INSTRUMENT;
+	msg.m.session_objd = session_objd;
+
+	len = ustcomm_send_unix_sock(sock, &msg, sizeof(msg));
+	if (len > 0 && len != sizeof(msg)) {
+		return -EIO;
+	}
+	if (len < 0) {
+		return len;
+	}
+
+	/* send probe information */
+	/* TODO: send object_path separately, since sizeof(object_path) == 4k */
+	len = ustcomm_send_unix_sock(sock, &uevent->u.probe,
+			sizeof(struct lttng_ust_probe));
+	if (len > 0 && len != sizeof(struct lttng_ust_probe)) {
+		return -EIO;
+	}
+	if (len < 0) {
+		return len;
+	}
+
+	/* receive reply */
+	len = ustcomm_recv_unix_sock(sock, &reply, sizeof(reply));
+	switch (len) {
+	case 0:	/* orderly shutdown */
+		return -EPIPE;
+	case sizeof(reply):
+		if (reply.header.notify_cmd != msg.header.notify_cmd) {
+			ERR("Unexpected result message command "
+				"expected: %u vs received: %u\n",
+				msg.header.notify_cmd, reply.header.notify_cmd);
+			return -EINVAL;
+		}
+		if (reply.r.ret_code > 0)
+			return -EINVAL;
+		if (reply.r.ret_code < 0)
+			return reply.r.ret_code;
+		DBG("Sent instrument probe notification for object \"%s\": ret_code %d\n",
+			uevent->u.probe.object_path, reply.r.ret_code);
+		return 0;
+	default:
+		if (len < 0) {
+			/* Transport level error */
+			if (errno == EPIPE || errno == ECONNRESET)
+				len = -errno;
+			return len;
+		} else {
+			ERR("incorrect message size: %zd\n", len);
+			return len;
+		}
+	}
+}
+
+/*
+ * Returns 0 on success, negative error value on error.
+ */
 int ustcomm_register_event(int sock,
 	int session_objd,		/* session descriptor */
 	int channel_objd,		/* channel descriptor */
