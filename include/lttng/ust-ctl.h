@@ -414,4 +414,18 @@ int ustctl_reply_register_channel(int sock,
 	enum ustctl_channel_header header_type,
 	int ret_code);			/* return code. 0 ok, negative error */
 
+/*
+ * Returns 0 on success, negative error value on error.
+ */
+int ustctl_recv_instrument_probe(int sock,
+	int *session_objd,
+	enum lttng_ust_instrumentation *instrumentation,
+	uint64_t *addr,
+	char *symbol,
+	uint64_t *offset);
+
+/*
+ * Returns 0 on success, negative error value on error.
+ */
+int ustctl_reply_instrument_probe(int sock, int ret_code);
 #endif /* _LTTNG_UST_CTL_H */
