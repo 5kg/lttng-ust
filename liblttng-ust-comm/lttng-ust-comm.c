@@ -1114,7 +1114,6 @@ int ustcomm_register_channel(int sock,
  * Returns 0 on success, negative error value on error.
  */
 int ustcomm_instrument_probe(int sock,
-	int session_objd,			/* session descriptor */
 	const struct lttng_ust_event *uevent)	/* userspace event */
 {
 	ssize_t len;
@@ -1129,7 +1128,6 @@ int ustcomm_instrument_probe(int sock,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.header.notify_cmd = USTCTL_NOTIFY_CMD_INSTRUMENT;
-	msg.m.session_objd = session_objd;
 	msg.m.instrumentaion = uevent->instrumentation;
 	msg.m.addr = uevent->u.probe.addr;
 	strncpy(msg.m.symbol, uevent->u.probe.symbol_name, LTTNG_UST_SYM_NAME_LEN);

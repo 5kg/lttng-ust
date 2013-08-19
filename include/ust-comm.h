@@ -162,7 +162,6 @@ struct ustcomm_notify_channel_reply {
 
 #define USTCOMM_NOTIFY_INSTRUMENT_MSG_PADDING	32
 struct ustcomm_notify_instrument_msg {
-	uint32_t session_objd;
 	enum lttng_ust_instrumentation instrumentaion;
 	uint64_t addr;
 	char symbol[LTTNG_UST_SYM_NAME_LEN];
@@ -225,7 +224,6 @@ int ustcomm_send_reg_msg(int sock,
  * Returns -EPIPE or -ECONNRESET if other end has hung up.
  */
 int ustcomm_instrument_probe(int sock,
-	int session_objd,			/* session descriptor */
 	const struct lttng_ust_event *uevent);	/* userspace event */
 
 /*
