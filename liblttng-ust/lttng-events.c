@@ -367,7 +367,7 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 	}
 
 	/* Notify sessiond to do the instrumentation */
-	ret = ustcomm_instrument_probe(notify_socket, session->objd, uevent);
+	ret = ustcomm_instrument_probe(notify_socket, uevent);
 	if (ret < 0) {
 		DBG("Error (%d) instrument probe by sessiond", ret);
 		goto sessiond_instrument_error;
