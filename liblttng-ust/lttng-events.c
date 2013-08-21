@@ -352,40 +352,6 @@ end:
 }
 
 /*
- * Notify sessiond to instrument the application.
- */
-static
-int lttng_probe_instrument(const struct lttng_ust_event *uevent,
-		struct lttng_channel *chan)
-{
-	struct lttng_session *session = chan->session;
-	int ret = 0;
-	int notify_socket;
-
-	/* TODO: check if the probe is already instrumented */
-	/* TODO: register the probe, assuming probe registered for now */
-
-	notify_socket = lttng_get_notify_socket(session->owner);
-	if (notify_socket < 0) {
-		ret = notify_socket;
-		goto socket_error;
-	}
-
-	/* Notify sessiond to do the instrumentation */
-	ret = ustcomm_instrument_probe(notify_socket, uevent);
-	if (ret < 0) {
-		DBG("Error (%d) instrument probe by sessiond", ret);
-		goto sessiond_instrument_error;
-	}
-	return 0;
-
-
-socket_error:
-sessiond_instrument_error:
-	return ret;
-}
-
-/*
  * Supports event creation while tracing session is active.
  */
 static
@@ -476,6 +442,40 @@ socket_error:
 exist:
 	return ret;
 }
+
+/*
+ * Notify sessiond to instrument the application.
+ */
+static
+int lttng_probe_instrument(const struct lttng_ust_event *uevent,
+		struct lttng_channel *chan)
+{
+	struct lttng_session *session = chan->session;
+	int ret = 0;
+	int notify_socket;
+
+	/* TODO: check if the probe is already instrumented */
+	/* TODO: register the probe, assuming probe registered for now */
+
+	notify_socket = lttng_get_notify_socket(session->owner);
+	if (notify_socket < 0) {
+		ret = notify_socket;
+		goto socket_error;
+	}
+
+	/* Notify sessiond to do the instrumentation */
+	ret = ustcomm_instrument_probe(notify_socket, uevent);
+	if (ret < 0) {
+		DBG("Error (%d) instrument probe by sessiond", ret);
+		goto sessiond_instrument_error;
+	}
+	return 0;
+
+socket_error:
+sessiond_instrument_error:
+	return ret;
+}
+
 
 static
 int lttng_desc_loglevel_match_enabler(const struct lttng_event_desc *desc,
@@ -648,7 +648,12 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 				continue;
 
 			if (enabler->type == LTTNG_ENABLER_DYNAMIC) {
-				lttng_probe_instrument(&enabler->event_param, enabler->chan);
+				ret = lttng_probe_instrument(&enabler->event_param,
+						enabler->chan);
+				if (ret) {
+					DBG("Unable to instrument probe %s, error %d\n",
+						enabler->event_param.name, ret);
+				}
 			}
 
 			/*
