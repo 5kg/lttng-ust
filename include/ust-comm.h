@@ -223,13 +223,6 @@ int ustcomm_send_reg_msg(int sock,
  * Returns 0 on success, negative error value on error.
  * Returns -EPIPE or -ECONNRESET if other end has hung up.
  */
-int ustcomm_instrument_probe(int sock,
-	const struct lttng_ust_event *uevent);	/* userspace event */
-
-/*
- * Returns 0 on success, negative error value on error.
- * Returns -EPIPE or -ECONNRESET if other end has hung up.
- */
 int ustcomm_register_event(int sock,
 	int session_objd,		/* session descriptor */
 	int channel_objd,		/* channel descriptor */
@@ -252,6 +245,13 @@ int ustcomm_register_channel(int sock,
 	const struct lttng_ctx_field *ctx_fields,
 	uint32_t *chan_id,		/* channel id (output) */
 	int *header_type); 		/* header type (output) */
+
+/*
+ * Returns 0 on success, negative error value on error.
+ * Returns -EPIPE or -ECONNRESET if other end has hung up.
+ */
+int ustcomm_instrument_probe(int sock,
+	const struct lttng_ust_event *uevent);	/* userspace event */
 
 int ustcomm_setsockopt_rcv_timeout(int sock, unsigned int msec);
 int ustcomm_setsockopt_snd_timeout(int sock, unsigned int msec);
