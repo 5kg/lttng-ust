@@ -1554,6 +1554,9 @@ int ustctl_recv_notify(int sock, enum ustctl_notify_cmd *notify_cmd)
 	case 1:
 		*notify_cmd = USTCTL_NOTIFY_CMD_CHANNEL;
 		break;
+	case 2:
+		*notify_cmd = USTCTL_NOTIFY_CMD_INSTRUMENT;
+		break;
 	default:
 		return -EINVAL;
 	}
