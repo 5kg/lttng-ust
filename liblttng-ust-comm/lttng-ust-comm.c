@@ -1128,6 +1128,8 @@ int ustcomm_instrument_probe(int sock,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.header.notify_cmd = USTCTL_NOTIFY_CMD_INSTRUMENT;
+	strncpy(msg.m.name, uevent->name, LTTNG_UST_SYM_NAME_LEN);
+	msg.m.name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	msg.m.instrumentaion = uevent->instrumentation;
 	msg.m.addr = uevent->u.probe.addr;
 	strncpy(msg.m.symbol, uevent->u.probe.symbol_name, LTTNG_UST_SYM_NAME_LEN);
