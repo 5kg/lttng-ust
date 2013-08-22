@@ -1971,6 +1971,7 @@ int ustctl_reply_register_channel(int sock,
  * Returns 0 on success, negative error value on error.
  */
 int ustctl_recv_instrument_probe(int sock,
+	char *name,
 	enum lttng_ust_instrumentation *instrumentation,
 	uint64_t *addr,
 	char *symbol,
@@ -1987,6 +1988,8 @@ int ustctl_recv_instrument_probe(int sock,
 	if (len < 0)
 		return len;
 
+	strncpy(name, msg.name, LTTNG_UST_SYM_NAME_LEN);
+	name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	*instrumentation = msg.instrumentaion;
 	*addr = msg.addr;
 	strncpy(symbol, msg.symbol, LTTNG_UST_SYM_NAME_LEN);
