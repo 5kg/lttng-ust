@@ -418,6 +418,7 @@ int ustctl_reply_register_channel(int sock,
  * Returns 0 on success, negative error value on error.
  */
 int ustctl_recv_instrument_probe(int sock,
+	char *object_path,
 	char *name,
 	enum lttng_ust_instrumentation *instrumentation,
 	uint64_t *addr,
