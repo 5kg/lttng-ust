@@ -166,6 +166,7 @@ struct ustcomm_notify_channel_reply {
 
 #define USTCOMM_NOTIFY_INSTRUMENT_MSG_PADDING	32
 struct ustcomm_notify_instrument_msg {
+	char object_path[PATH_MAX];
 	char name[LTTNG_UST_SYM_NAME_LEN];
 	enum lttng_ust_instrumentation instrumentaion;
 	uint64_t addr;
