@@ -1812,6 +1812,7 @@ int ustctl_reply_register_channel(int sock,
  * Returns 0 on success, negative error value on error.
  */
 int ustctl_recv_instrument_probe(int sock,
+	char *object_path,
 	char *name,
 	enum lttng_ust_instrumentation *instrumentation,
 	uint64_t *addr,
@@ -1829,6 +1830,8 @@ int ustctl_recv_instrument_probe(int sock,
 	if (len < 0)
 		return len;
 
+	strncpy(object_path, msg.object_path, PATH_MAX);
+	object_path[PATH_MAX - 1] = '\0';
 	strncpy(name, msg.name, LTTNG_UST_SYM_NAME_LEN);
 	name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	*instrumentation = msg.instrumentaion;
