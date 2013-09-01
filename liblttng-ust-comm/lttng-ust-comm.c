@@ -1128,8 +1128,7 @@ int ustcomm_instrument_probe(int sock,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.header.notify_cmd = USTCTL_NOTIFY_CMD_INSTRUMENT;
-	strncpy(msg.m.object_path, uevent->object_path, PATH_MAX);
-	msg.m.object_path[PATH_MAX - 1] = '\0';
+	strncpy(msg.m.object_path, uevent->target->path, uevent->target->path_len);
 	strncpy(msg.m.name, uevent->name, LTTNG_UST_SYM_NAME_LEN);
 	msg.m.name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	msg.m.instrumentaion = uevent->instrumentation;
@@ -1163,7 +1162,7 @@ int ustcomm_instrument_probe(int sock,
 		if (reply.r.ret_code < 0)
 			return reply.r.ret_code;
 		DBG("Sent instrument probe notification for object \"%s\": ret_code %d\n",
-			uevent->object_path, reply.r.ret_code);
+			uevent->target->path, reply.r.ret_code);
 		return 0;
 	default:
 		if (len < 0) {

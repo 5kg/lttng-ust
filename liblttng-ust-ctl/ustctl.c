@@ -208,6 +208,15 @@ int ustctl_create_event(int sock, struct lttng_ust_event *ev,
 		free(event_data);
 		return ret;
 	}
+	if (ev->target) {
+		ret = ustcomm_send_unix_sock(sock, ev->target->path,
+						ev->target->path_len);
+		if (ret < 0) {
+			return ret;
+		}
+		if (ret != ev->target->path_len)
+			return -EINVAL;
+	}
 	event_data->handle = lur.ret_val;
 	DBG("received event handle %u", event_data->handle);
 	*_event_data = event_data;
