@@ -1187,7 +1187,6 @@ int ustcomm_instrument_probe(int sock,
 	}
 }
 
-
 /*
  * Set socket reciving timeout.
  */
