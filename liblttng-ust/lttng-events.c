@@ -519,7 +519,7 @@ int lttng_desc_match_dynamic_enabler(const struct lttng_event_desc *desc,
 {
 	char exec_path[PATH_MAX];
 
-	assert(enabler->type == LTTNG_ENABLER_DYNAMIC);
+	assert(enabler->type == LTTNG_ENABLER_INSTRUMENT);
 	if (lttng_ust_getexecpath(exec_path) == -1)
 		return 0;
 	if (strcmp(exec_path, enabler->event_param.target->path))
@@ -562,7 +562,7 @@ int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 		return lttng_desc_match_wildcard_enabler(desc, enabler);
 	case LTTNG_ENABLER_EVENT:
 		return lttng_desc_match_event_enabler(desc, enabler);
-	case LTTNG_ENABLER_DYNAMIC:
+	case LTTNG_ENABLER_INSTRUMENT:
 		return lttng_desc_match_dynamic_enabler(desc, enabler);
 	default:
 		return -EINVAL;
@@ -642,7 +642,7 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 			if (found)
 				continue;
 
-			if (enabler->type == LTTNG_ENABLER_DYNAMIC) {
+			if (enabler->type == LTTNG_ENABLER_INSTRUMENT) {
 				ret = lttng_probe_instrument(&enabler->event_param,
 						enabler->chan);
 				if (ret) {
