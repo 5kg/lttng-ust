@@ -646,7 +646,7 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 				ret = lttng_probe_instrument(&enabler->event_param,
 						enabler->chan);
 				if (ret) {
-					DBG("Unable to instrument probe %s, error %d\n",
+					DBG("Unable to instrument probe %s, error %d",
 						enabler->event_param.name, ret);
 				}
 			}
