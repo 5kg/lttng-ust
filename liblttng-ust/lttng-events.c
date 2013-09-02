@@ -514,7 +514,7 @@ int lttng_desc_match_event_enabler(const struct lttng_event_desc *desc,
 }
 
 static
-int lttng_desc_match_dynamic_enabler(const struct lttng_event_desc *desc,
+int lttng_desc_match_instrument_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
 	char exec_path[PATH_MAX];
@@ -563,7 +563,7 @@ int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 	case LTTNG_ENABLER_EVENT:
 		return lttng_desc_match_event_enabler(desc, enabler);
 	case LTTNG_ENABLER_INSTRUMENT:
-		return lttng_desc_match_dynamic_enabler(desc, enabler);
+		return lttng_desc_match_instrument_enabler(desc, enabler);
 	default:
 		return -EINVAL;
 	}
