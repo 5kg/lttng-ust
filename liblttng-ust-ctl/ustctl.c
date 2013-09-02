@@ -2016,15 +2016,25 @@ int ustctl_recv_instrument_probe(int sock,
 	if (len < 0)
 		return len;
 
-	strncpy(object_path, msg.object_path, PATH_MAX);
-	object_path[PATH_MAX - 1] = '\0';
 	strncpy(name, msg.name, LTTNG_UST_SYM_NAME_LEN);
 	name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
-	*instrumentation = msg.instrumentaion;
+	*instrumentation = msg.instrumentation;
 	*addr = msg.addr;
 	strncpy(symbol, msg.symbol, LTTNG_UST_SYM_NAME_LEN);
 	symbol[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	*offset = msg.offset;
+
+	if (msg.object_path_len <= 0) {
+		return -EINVAL;
+	}
+
+	len = ustcomm_recv_unix_sock(sock, object_path, msg.object_path_len);
+	if (len > 0 && len != msg.object_path_len)
+		return -EIO;
+	if (len == 0)
+		return -EPIPE;
+	if (len < 0)
+		return len;
 
 	return 0;
 }
