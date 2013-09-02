@@ -942,6 +942,8 @@ static const struct lttng_ust_objd_ops lttng_channel_ops = {
  *		Disable recording for this enabler
  *	LTTNG_UST_FILTER
  *		Attach a filter to an enabler.
+ *	LTTNG_UST_TARGET
+ *		Attach a target to an enabler.
  */
 static
 long lttng_enabler_cmd(int objd, unsigned int cmd, unsigned long arg,
@@ -966,6 +968,11 @@ long lttng_enabler_cmd(int objd, unsigned int cmd, unsigned long arg,
 		if (ret)
 			return ret;
 		return 0;
+	}
+	case LTTNG_UST_TARGET:
+	{
+		return lttng_enabler_attach_target(enabler,
+				(struct lttng_ust_target *) arg);
 	}
 	default:
 		return -EINVAL;

@@ -537,6 +537,8 @@ int lttng_enabler_enable(struct lttng_enabler *enabler);
 int lttng_enabler_disable(struct lttng_enabler *enabler);
 int lttng_enabler_attach_bytecode(struct lttng_enabler *enabler,
 		struct lttng_ust_filter_bytecode_node *bytecode);
+int lttng_enabler_attach_target(struct lttng_enabler *enabler,
+		struct lttng_ust_target *target);
 int lttng_enabler_attach_context(struct lttng_enabler *enabler,
 		struct lttng_ust_context *ctx);
 
