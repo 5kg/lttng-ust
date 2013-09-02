@@ -944,6 +944,8 @@ static const struct lttng_ust_objd_ops lttng_channel_ops = {
  *		Attach a filter to an enabler.
  *	LTTNG_UST_EXCLUSION
  *		Attach exclusions to an enabler.
+ *	LTTNG_UST_TARGET
+ *		Attach a target to an enabler.
  */
 static
 long lttng_enabler_cmd(int objd, unsigned int cmd, unsigned long arg,
@@ -973,6 +975,11 @@ long lttng_enabler_cmd(int objd, unsigned int cmd, unsigned long arg,
 	{
 		return lttng_enabler_attach_exclusion(enabler,
 				(struct lttng_ust_excluder_node *) arg);
+	}
+	case LTTNG_UST_TARGET:
+	{
+		return lttng_enabler_attach_target(enabler,
+				(struct lttng_ust_target *) arg);
 	}
 	default:
 		return -EINVAL;

@@ -622,6 +622,67 @@ int handle_message(struct sock_info *sock_info,
 		}
 		break;
 	}
+	case LTTNG_UST_TARGET:
+	{
+		/* Receive filter data */
+		struct lttng_ust_target *target;
+
+		if (lum->u.target.data_size >
+				sizeof(struct lttng_ust_target) + PATH_MAX) {
+			ERR("Target data size is too large: %u bytes",
+				lum->u.target.data_size);
+			ret = -EINVAL;
+			goto error;
+		}
+
+		target = zmalloc(lum->u.target.data_size);
+		if (!target) {
+			ret = -ENOMEM;
+			goto error;
+		}
+		len = ustcomm_recv_unix_sock(sock, target,
+				lum->u.target.data_size);
+		switch (len) {
+		case 0:	/* orderly shutdown */
+			ret = 0;
+			free(target);
+			goto error;
+		default:
+			if (len == lum->u.target.data_size) {
+				DBG("target data received");
+				break;
+			} else if (len < 0) {
+				DBG("Receive failed from lttng-sessiond with errno %d", (int) -len);
+				if (len == -ECONNRESET) {
+					ERR("%s remote end closed connection", sock_info->name);
+					ret = len;
+					free(target);
+					goto error;
+				}
+				ret = len;
+				free(target);
+				goto end;
+			} else {
+				DBG("incorrect target data message size: %zd", len);
+				ret = -EINVAL;
+				free(target);
+				goto end;
+			}
+		}
+		if (ops->cmd) {
+			ret = ops->cmd(lum->handle, lum->cmd,
+					(unsigned long) target,
+					&args, sock_info);
+			if (ret) {
+				free(target);
+			}
+			/* don't free target if everything went fine. */
+		} else {
+			ret = -ENOSYS;
+			free(target);
+		}
+		break;
+	}
 	case LTTNG_UST_CHANNEL:
 	{
 		void *chan_data;

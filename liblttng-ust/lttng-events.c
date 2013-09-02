@@ -835,6 +835,14 @@ int lttng_enabler_attach_exclusion(struct lttng_enabler *enabler,
 	return 0;
 }
 
+int lttng_enabler_attach_target(struct lttng_enabler *enabler,
+		struct lttng_ust_target *target)
+{
+	enabler->event_param.target = target;
+	lttng_session_lazy_sync_enablers(enabler->chan->session);
+	return 0;
+}
+
 int lttng_attach_context(struct lttng_ust_context *context_param,
 		struct lttng_ctx **ctx, struct lttng_session *session)
 {
