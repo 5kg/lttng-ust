@@ -264,7 +264,7 @@ int ustctl_set_target(int sock, struct lttng_ust_target *target,
 	ret = ustcomm_send_app_msg(sock, &lum);
 	if (ret)
 		return ret;
-	/* send var len bytecode */
+	/* send var len target struct */
 	ret = ustcomm_send_unix_sock(sock, target, lum.u.target.data_size);
 	if (ret < 0) {
 		return ret;

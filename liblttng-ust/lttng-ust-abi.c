@@ -880,7 +880,7 @@ long lttng_channel_cmd(int objd, unsigned int cmd, unsigned long arg,
 			case LTTNG_UST_PROBE:
 			case LTTNG_UST_FUNCTION:
 				return lttng_abi_create_enabler(objd, event_param,
-						owner, LTTNG_ENABLER_DYNAMIC);
+						owner, LTTNG_ENABLER_INSTRUMENT);
 			default: break;
 		}
 
