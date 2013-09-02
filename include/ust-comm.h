@@ -90,6 +90,9 @@ struct ustcomm_ust_msg {
 			uint32_t reloc_offset;
 			uint64_t seqnum;
 		} LTTNG_PACKED filter;
+		struct {
+			uint32_t data_size;	/* following target data */
+		} LTTNG_PACKED target;
 		char padding[USTCOMM_MSG_PADDING2];
 	} u;
 } LTTNG_PACKED;

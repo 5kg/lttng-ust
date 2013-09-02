@@ -73,6 +73,8 @@ int ustctl_add_context(int sock, struct lttng_ust_context *ctx,
 		struct lttng_ust_object_data **context_data);
 int ustctl_set_filter(int sock, struct lttng_ust_filter_bytecode *bytecode,
 		struct lttng_ust_object_data *obj_data);
+int ustctl_set_target(int sock, struct lttng_ust_target *target,
+		struct lttng_ust_object_data *obj_data);
 
 int ustctl_enable(int sock, struct lttng_ust_object_data *object);
 int ustctl_disable(int sock, struct lttng_ust_object_data *object);

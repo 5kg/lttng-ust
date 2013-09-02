@@ -300,6 +300,7 @@ struct lttng_ust_filter_bytecode {
 
 /* Event FD commands */
 #define LTTNG_UST_FILTER			_UST_CMD(0xA0)
+#define LTTNG_UST_TARGET			_UST_CMD(0xA1)
 
 #define LTTNG_UST_ROOT_HANDLE	0
 
