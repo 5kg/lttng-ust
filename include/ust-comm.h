@@ -165,13 +165,14 @@ struct ustcomm_notify_channel_reply {
 
 #define USTCOMM_NOTIFY_INSTRUMENT_MSG_PADDING	32
 struct ustcomm_notify_instrument_msg {
-	char object_path[PATH_MAX];
+	uint32_t instrumentation;	/* enum lttng_ust_instrumentation */
 	char name[LTTNG_UST_SYM_NAME_LEN];
-	enum lttng_ust_instrumentation instrumentaion;
 	uint64_t addr;
 	char symbol[LTTNG_UST_SYM_NAME_LEN];
 	uint64_t offset;
+	uint32_t object_path_len;
 	char padding[USTCOMM_NOTIFY_INSTRUMENT_MSG_PADDING];
+	/* followed by object_path */
 } LTTNG_PACKED;
 
 #define USTCOMM_NOTIFY_INSTRUMENT_REPLY_PADDING	32

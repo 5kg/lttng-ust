@@ -413,4 +413,5 @@ int ustctl_recv_instrument_probe(int sock,
  * Returns 0 on success, negative error value on error.
  */
 int ustctl_reply_instrument_probe(int sock, int ret_code);
+
 #endif /* _LTTNG_UST_CTL_H */

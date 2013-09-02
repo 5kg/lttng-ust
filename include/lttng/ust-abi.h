@@ -116,7 +116,7 @@ struct lttng_ust_probe {
  */
 #define LTTNG_UST_TARGET_PADDING	32
 struct lttng_ust_target {
-	int path_len;
+	uint32_t path_len;
 
 	char padding[LTTNG_UST_TARGET_PADDING];
 

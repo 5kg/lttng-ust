@@ -1128,17 +1128,26 @@ int ustcomm_instrument_probe(int sock,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.header.notify_cmd = USTCTL_NOTIFY_CMD_INSTRUMENT;
-	strncpy(msg.m.object_path, uevent->target->path, uevent->target->path_len);
+	msg.m.instrumentation = uevent->instrumentation;
 	strncpy(msg.m.name, uevent->name, LTTNG_UST_SYM_NAME_LEN);
 	msg.m.name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
-	msg.m.instrumentaion = uevent->instrumentation;
 	msg.m.addr = uevent->u.probe.addr;
 	strncpy(msg.m.symbol, uevent->u.probe.symbol_name, LTTNG_UST_SYM_NAME_LEN);
 	msg.m.symbol[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	msg.m.offset = uevent->u.probe.offset;
+	msg.m.object_path_len = uevent->target->path_len;
 
 	len = ustcomm_send_unix_sock(sock, &msg, sizeof(msg));
 	if (len > 0 && len != sizeof(msg)) {
+		return -EIO;
+	}
+	if (len < 0) {
+		return len;
+	}
+
+	len = ustcomm_send_unix_sock(sock, uevent->target->path,
+			uevent->target->path_len);
+	if (len > 0 && len != uevent->target->path_len) {
 		return -EIO;
 	}
 	if (len < 0) {
