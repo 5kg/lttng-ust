@@ -528,7 +528,7 @@ int lttng_desc_match_instrument_enabler(const struct lttng_event_desc *desc,
 	if (strcmp(exec_path, enabler->event_param.target->path))
 		return 0;
 	/* TODO: match shared libraries */
-	return lttng_desc_loglevel_match_enabler(desc, enabler);
+	return lttng_desc_match_event_enabler(desc, enabler);
 }
 
 static
