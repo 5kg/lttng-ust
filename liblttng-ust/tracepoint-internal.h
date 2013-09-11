@@ -39,6 +39,8 @@ extern int tracepoint_probe_unregister_noupdate(const char *name,
 		void (*callback)(void), void *priv);
 extern void tracepoint_probe_update_all(void);
 
+extern struct tracepoint *tracepoint_find_by_name(const char *name);
+
 /*
  * call after disconnection of last probe implemented within a
  * shared object before unmapping the library that contains the probe.
