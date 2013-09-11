@@ -163,10 +163,12 @@ struct ustcomm_notify_channel_reply {
 	char padding[USTCOMM_NOTIFY_CHANNEL_REPLY_PADDING];
 } LTTNG_PACKED;
 
-#define USTCOMM_NOTIFY_INSTRUMENT_MSG_PADDING	32
+#define USTCOMM_NOTIFY_INSTRUMENT_MSG_PADDING	\
+	(32 - sizeof(struct tracepoint *))
 struct ustcomm_notify_instrument_msg {
 	uint32_t instrumentation;	/* enum lttng_ust_instrumentation */
 	char name[LTTNG_UST_SYM_NAME_LEN];
+	struct tracepoint *tracepoint;
 	uint64_t addr;
 	char symbol[LTTNG_UST_SYM_NAME_LEN];
 	uint64_t offset;
@@ -257,6 +259,7 @@ int ustcomm_register_channel(int sock,
  * Returns -EPIPE or -ECONNRESET if other end has hung up.
  */
 int ustcomm_instrument_probe(int sock,
+	struct tracepoint *tracepoint,
 	const struct lttng_ust_event *uevent);	/* userspace event */
 
 int ustcomm_setsockopt_rcv_timeout(int sock, unsigned int msec);

@@ -449,6 +449,7 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 		struct lttng_channel *chan)
 {
 	struct lttng_session *session = chan->session;
+	struct tracepoint *tracepoint;
 	int ret = 0;
 	int notify_socket;
 
@@ -461,8 +462,14 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 		goto socket_error;
 	}
 
+	tracepoint = tracepoint_find_by_name(uevent->name);
+	if (tracepoint == NULL) {
+		ret = -EEXIST;
+		goto sessiond_instrument_error;
+	}
+
 	/* Notify sessiond to do the instrumentation */
-	ret = ustcomm_instrument_probe(notify_socket, uevent);
+	ret = ustcomm_instrument_probe(notify_socket, tracepoint, uevent);
 	if (ret < 0) {
 		DBG("Error (%d) instrument probe by sessiond", ret);
 		goto sessiond_instrument_error;
