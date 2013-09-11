@@ -93,6 +93,7 @@ static int need_update;
  */
 struct tracepoint_entry {
 	struct cds_hlist_node hlist;
+	struct tracepoint *tracepoint;
 	struct tracepoint_probe *probes;
 	int refcount;	/* Number of times armed. 0 if disarmed. */
 	const char *signature;
@@ -370,6 +371,7 @@ static void set_tracepoint(struct tracepoint_entry **entry,
 		return;
 	}
 
+	(*entry)->tracepoint = elem;
 	/*
 	 * rcu_assign_pointer has a cmm_smp_wmb() which makes sure that the new
 	 * probe callbacks array is consistent before setting a pointer to it.
@@ -685,6 +687,25 @@ void tracepoint_probe_update_all(void)
 	}
 end:
 	pthread_mutex_unlock(&tracepoint_mutex);
+}
+
+/**
+ * tracepoint_find_by_name - find tracepoint struct given a name
+ * @name: tracepoint name
+ *
+ * Returns a pointer of the found tracepoint struct if ok, NULL on error.
+ * Used for instrumented probes to emit tracepoint event
+ */
+struct tracepoint *tracepoint_find_by_name(const char *name)
+{
+	struct tracepoint *ret;
+
+	DBG("Find tracepoint using name %s", name);
+
+	pthread_mutex_lock(&tracepoint_mutex);
+	ret = get_tracepoint(name)->tracepoint;
+	pthread_mutex_unlock(&tracepoint_mutex);
+	return ret;
 }
 
 void tracepoint_set_new_tracepoint_cb(void (*cb)(struct tracepoint *))
