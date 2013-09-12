@@ -276,12 +276,7 @@ struct lttng_event_desc {
 	} u;
 };
 
-enum lttng_probe_type {
-	LTTNG_PROBE_STATIC,
-	LTTNG_PROBE_INSTRUMENT,
-};
-
-#define LTTNG_UST_PROBE_DESC_PADDING	8
+#define LTTNG_UST_PROBE_DESC_PADDING	12
 struct lttng_probe_desc {
 	const char *provider;
 	const struct lttng_event_desc **event_desc;
@@ -291,7 +286,6 @@ struct lttng_probe_desc {
 	int lazy;				/* lazy registration */
 	uint32_t major;
 	uint32_t minor;
-	enum lttng_probe_type type;
 	char padding[LTTNG_UST_PROBE_DESC_PADDING];
 };
 
