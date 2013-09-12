@@ -788,6 +788,11 @@ lib_added:
 	return 0;
 }
 
+int tracepoint_register(struct tracepoint *tracepoint)
+{
+	return tracepoint_register_lib(&tracepoint, 1);
+}
+
 int tracepoint_unregister_lib(struct tracepoint * const *tracepoints_start)
 {
 	struct tracepoint_lib *lib;
