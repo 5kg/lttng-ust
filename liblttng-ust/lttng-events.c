@@ -471,13 +471,13 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 	/* Notify sessiond to do the instrumentation */
 	ret = ustcomm_instrument_probe(notify_socket, tracepoint, uevent);
 	if (ret < 0) {
-		DBG("Error (%d) instrument probe by sessiond", ret);
 		goto sessiond_instrument_error;
 	}
 	return 0;
 
 socket_error:
 sessiond_instrument_error:
+	DBG("Error (%d) instrument probe %s by sessiond", ret, uevent->name);
 	return ret;
 }
 
@@ -593,6 +593,12 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 	int i;
 	struct cds_list_head *probe_list;
 
+	if (enabler->type == LTTNG_ENABLER_INSTRUMENT) {
+		if (lttng_probe_instrument(&enabler->event_param, enabler->chan)) {
+			goto error;
+		}
+	}
+
 	probe_list = lttng_get_probe_list_head();
 	/*
 	 * For each probe event, if we find that a probe event matches
@@ -627,15 +633,6 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 			if (found)
 				continue;
 
-			if (enabler->type == LTTNG_ENABLER_INSTRUMENT) {
-				ret = lttng_probe_instrument(&enabler->event_param,
-						enabler->chan);
-				if (ret) {
-					DBG("Unable to instrument probe %s, error %d",
-						enabler->event_param.name, ret);
-				}
-			}
-
 			/*
 			 * We need to create an event for this
 			 * event probe.
@@ -648,6 +645,9 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 			}
 		}
 	}
+
+error:
+	return;
 }
 
 /*
