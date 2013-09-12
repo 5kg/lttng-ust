@@ -40,6 +40,7 @@ extern int tracepoint_probe_unregister_noupdate(const char *name,
 extern void tracepoint_probe_update_all(void);
 
 extern struct tracepoint *tracepoint_find_by_name(const char *name);
+extern int tracepoint_register(struct tracepoint* tracepoint);
 
 /*
  * call after disconnection of last probe implemented within a
