@@ -153,10 +153,9 @@ void lttng_lazy_probe_register(struct lttng_probe_desc *desc)
 		/* Discard const point qualifier */
 		iter = (struct lttng_probe_desc *) find_provider(desc->provider);
 		if (iter) {
-			iter->event_desc =
-				realloc(iter->event_desc,
-						sizeof(struct lttng_event_desc *)
-						* (iter->nr_events + desc->nr_events));
+			iter->event_desc = realloc(iter->event_desc,
+					sizeof(struct lttng_event_desc *)
+					* (iter->nr_events + desc->nr_events));
 			memcpy(iter->event_desc + iter->nr_events, desc->event_desc,
 					sizeof(struct lttng_event_desc *) * desc->nr_events);
 			iter->nr_events += desc->nr_events;
