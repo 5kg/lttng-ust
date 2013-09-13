@@ -447,22 +447,58 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 {
 	struct lttng_session *session = chan->session;
 	struct tracepoint *tracepoint;
-	int ret = 0;
-	int notify_socket;
+	int ret = 0, notify_socket;
 
-	/* TODO: check if the probe is already instrumented */
-	/* TODO: register the probe, assuming probe registered for now */
+	size_t provider_len = strchr(uevent->name, ':');
+	const char *signature = uevent->name + provider_len + 1;
+	char provider[LTTNG_UST_SYM_NAME_LEN];
+	memcpy(provider, uevent->name, provider_len);
+	provider[provider_len] = '\0';
+
+	/* Check if the probe is already instrumented */
+	tracepoint = tracepoint_find_by_name(uevent->name);
+	if (tracepoint) {
+		ret = -EEXIST;
+		goto sessiond_instrument_error;
+	}
+
+	/* Create and register tracepoint */
+	/* TODO: When and where to free ? */
+	tracepoint = zmalloc(sizeof(struct tracepoint));
+	tracepoint->name = uevent->name;
+	tracepoint->state = 0;
+	tracepoint->probes = NULL;
+	tracepoint->signature = signature;
+	tracepoint_register(tracepoint);
+
+	/* Create and register probe */
+	/* TODO: When and where to free ? */
+	struct lttng_event_desc *event_desc =
+		zmalloc(sizeof(struct lttng_event_desc));
+	event_desc->name = uevent->name;
+	event_desc->probe_callback = (void (*)()) NULL;
+	event_desc->ctx = NULL;
+	event_desc->fields = NULL;
+	event_desc->nr_fields = 0;
+	event_desc->signature = signature;
+
+	struct lttng_probe_desc probe_desc = {
+		.provider = provider,
+		.event_desc = (const struct lttng_event_desc **) &event_desc,
+		.nr_events = 1,
+		.head = { NULL, NULL },
+		.lazy_init_head = { NULL, NULL },
+		.lazy = 0,
+		.major = LTTNG_UST_PROVIDER_MAJOR,
+		.minor = LTTNG_UST_PROVIDER_MINOR,
+	};
+	lttng_probe_register(&probe_desc);
+
 
 	notify_socket = lttng_get_notify_socket(session->owner);
 	if (notify_socket < 0) {
 		ret = notify_socket;
 		goto socket_error;
-	}
-
-	tracepoint = tracepoint_find_by_name(uevent->name);
-	if (tracepoint == NULL) {
-		ret = -EEXIST;
-		goto sessiond_instrument_error;
 	}
 
 	/* Notify sessiond to do the instrumentation */
