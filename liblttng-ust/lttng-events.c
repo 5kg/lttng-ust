@@ -475,7 +475,7 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 		struct lttng_event_desc *event_desc =
 			zmalloc(sizeof(struct lttng_event_desc));
 		event_desc->name = uevent->name;
-		event_desc->probe_callback = (void (*)()) NULL;
+		event_desc->probe_callback = (void (*)()) lttng_dynamic_probe_callback;
 		event_desc->ctx = NULL;
 		event_desc->fields = NULL;
 		event_desc->nr_fields = 0;
