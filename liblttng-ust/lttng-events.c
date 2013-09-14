@@ -558,21 +558,6 @@ int lttng_desc_match_event_enabler(const struct lttng_event_desc *desc,
 }
 
 static
-int lttng_desc_match_instrument_enabler(const struct lttng_event_desc *desc,
-		struct lttng_enabler *enabler)
-{
-	char exec_path[PATH_MAX];
-
-	assert(enabler->type == LTTNG_ENABLER_INSTRUMENT);
-	if (lttng_ust_getexecpath(exec_path) == -1)
-		return 0;
-	if (strcmp(exec_path, enabler->event_param.target->path))
-		return 0;
-	/* TODO: match shared libraries */
-	return lttng_desc_match_event_enabler(desc, enabler);
-}
-
-static
 int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
@@ -605,9 +590,8 @@ int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 	case LTTNG_ENABLER_WILDCARD:
 		return lttng_desc_match_wildcard_enabler(desc, enabler);
 	case LTTNG_ENABLER_EVENT:
-		return lttng_desc_match_event_enabler(desc, enabler);
 	case LTTNG_ENABLER_INSTRUMENT:
-		return lttng_desc_match_instrument_enabler(desc, enabler);
+		return lttng_desc_match_event_enabler(desc, enabler);
 	default:
 		return -EINVAL;
 	}
@@ -622,6 +606,18 @@ int lttng_event_match_enabler(struct lttng_event *event,
 		return 1;
 	else
 		return 0;
+}
+
+static
+int check_instrument_object_path(struct lttng_enabler *enabler)
+{
+	char exec_path[PATH_MAX];
+
+	if (lttng_ust_getexecpath(exec_path) == -1)
+		return 0;
+	if (strcmp(exec_path, enabler->event_param.target->path))
+		return 0;
+	return 1;
 }
 
 static
@@ -649,11 +645,13 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 	struct lttng_probe_desc *probe_desc;
 	const struct lttng_event_desc *desc;
 	struct lttng_event *event;
-	int i;
+	int i, ret;
 	struct cds_list_head *probe_list;
 
-	if (enabler->type == LTTNG_ENABLER_INSTRUMENT) {
-		if (lttng_probe_instrument(&enabler->event_param, enabler->chan)) {
+	if ((enabler->type == LTTNG_ENABLER_INSTRUMENT)
+			&& check_instrument_object_path(enabler)) {
+		ret = lttng_probe_instrument(&enabler->event_param, enabler->chan);
+		if (ret) {
 			goto error;
 		}
 	}
