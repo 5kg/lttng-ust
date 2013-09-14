@@ -47,6 +47,11 @@ int lttng_ust_getexecpath(char *path)
 	return -1;
 }
 
+#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER \
+	PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#endif
+
 #elif defined(__FreeBSD__)
 #include <stdlib.h>
 #include <string.h>
