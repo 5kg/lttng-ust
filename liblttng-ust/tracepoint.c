@@ -715,12 +715,16 @@ end:
  */
 struct tracepoint *tracepoint_find_by_name(const char *name)
 {
-	struct tracepoint *ret;
+	struct tracepoint *ret = NULL;
+	struct tracepoint_entry *entry = NULL;
 
 	DBG("Find tracepoint using name %s", name);
 
 	pthread_mutex_lock(&tracepoint_mutex);
-	ret = get_tracepoint(name)->tracepoint;
+	entry = get_tracepoint(name);
+	if (entry) {
+		ret = entry->tracepoint;
+	}
 	pthread_mutex_unlock(&tracepoint_mutex);
 	return ret;
 }
