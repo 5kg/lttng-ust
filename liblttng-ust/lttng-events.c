@@ -549,7 +549,8 @@ static
 int lttng_desc_match_event_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
-	assert(enabler->type == LTTNG_ENABLER_EVENT);
+	assert((enabler->type == LTTNG_ENABLER_EVENT)
+			|| (enabler->type == LTTNG_ENABLER_INSTRUMENT));
 	if (strcmp(desc->name, enabler->event_param.name))
 		return 0;
 	return lttng_desc_loglevel_match_enabler(desc, enabler);
