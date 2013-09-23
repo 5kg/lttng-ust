@@ -130,7 +130,9 @@ void lttng_lazy_probe_register(struct lttng_probe_desc *desc)
 	 * carefulness. This ensures we cannot have duplicate event
 	 * names across providers.
 	 */
-	assert(check_event_provider(desc));
+	if (desc->type == LTTNG_PROBE_STATIC) {
+		assert(check_event_provider(desc));
+	};
 
 	/*
 	 * The provider ensures there are no duplicate event names.
@@ -158,6 +160,7 @@ void lttng_lazy_probe_register(struct lttng_probe_desc *desc)
 					* (iter->nr_events + desc->nr_events));
 			memcpy(iter->event_desc + iter->nr_events, desc->event_desc,
 					sizeof(struct lttng_event_desc *) * desc->nr_events);
+			free(desc->event_desc);
 			iter->nr_events += desc->nr_events;
 			goto desc_added;
 		}
