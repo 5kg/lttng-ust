@@ -442,26 +442,22 @@ exist:
  * Notify sessiond to instrument the application.
  */
 static
-int lttng_probe_instrument(const struct lttng_ust_event *uevent,
-		struct lttng_channel *chan)
+struct tracepoint *lttng_create_tracepoint_if_missing(const char *name)
 {
-	struct lttng_session *session = chan->session;
 	struct tracepoint *tracepoint;
-	int ret = 0, notify_socket;
-
 	/* Check if the probe is already instrumented */
-	tracepoint = tracepoint_find_by_name(uevent->name);
+	tracepoint = tracepoint_find_by_name(name);
 	if (!tracepoint) {
-		size_t provider_len = strchr(uevent->name, ':') - uevent->name;
+		size_t provider_len = strchr(name, ':') - name;
 		char provider[LTTNG_UST_SYM_NAME_LEN];
-		const char *signature = uevent->name + provider_len + 1;
-		memcpy(provider, uevent->name, provider_len);
+		const char *signature = name + provider_len + 1;
+		memcpy(provider, name, provider_len);
 		provider[provider_len] = '\0';
 
 		/* Create and register tracepoint */
 		/* TODO: When and where to free ? */
 		tracepoint = zmalloc(sizeof(struct tracepoint));
-		tracepoint->name = uevent->name;
+		tracepoint->name = name;
 		tracepoint->state = 0;
 		tracepoint->probes = NULL;
 		tracepoint->signature = signature;
@@ -471,7 +467,7 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 		/* TODO: When and where to free ? */
 		struct lttng_event_desc *event_desc =
 			zmalloc(sizeof(struct lttng_event_desc));
-		event_desc->name = uevent->name;
+		event_desc->name = name;
 		event_desc->probe_callback = (void (*)()) lttng_dynamic_probe_callback;
 		event_desc->ctx = NULL;
 		event_desc->fields = NULL;
@@ -491,6 +487,41 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 		lttng_probe_register(&probe_desc);
 	}
 
+	return tracepoint;
+}
+
+/*
+ * Notify sessiond to instrument the application.
+ */
+static
+int lttng_probe_instrument(const struct lttng_ust_event *uevent,
+		struct lttng_channel *chan)
+{
+	struct lttng_session *session = chan->session;
+	struct lttng_ust_instrument_tracepoint_attr tracepoint;
+	char tracepoint_name[LTTNG_UST_SYM_NAME_LEN];
+	int ret = 0, notify_socket;
+
+	switch (uevent->instrumentation) {
+	case LTTNG_UST_PROBE:
+		tracepoint.u.probe = lttng_create_tracepoint_if_missing(uevent->name);
+		break;
+	case LTTNG_UST_FUNCTION:
+		strcpy(tracepoint_name, uevent->name);
+		strcat(tracepoint_name, "_entry");
+		tracepoint.u.function.entry =
+			lttng_create_tracepoint_if_missing(tracepoint_name);
+		strcpy(tracepoint_name, uevent->name);
+		strcat(tracepoint_name, "_exit");
+		tracepoint.u.function.exit =
+			lttng_create_tracepoint_if_missing(tracepoint_name);
+		break;
+	default:
+		ERR("Undefined instrumentation type");
+		goto sessiond_instrument_error;
+		break;
+	}
+
 	notify_socket = lttng_get_notify_socket(session->owner);
 	if (notify_socket < 0) {
 		ret = notify_socket;
@@ -498,7 +529,7 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 	}
 
 	/* Notify sessiond to do the instrumentation */
-	ret = ustcomm_instrument_probe(notify_socket, tracepoint, uevent);
+	ret = ustcomm_instrument_probe(notify_socket, &tracepoint, uevent);
 	if (ret < 0) {
 		goto sessiond_instrument_error;
 	}
@@ -506,7 +537,7 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 
 socket_error:
 sessiond_instrument_error:
-	DBG("Error (%d) instrument probe %s by sessiond", ret, uevent->name);
+	ERR("Error (%d) instrument probe %s by sessiond", ret, uevent->name);
 	return ret;
 }
 

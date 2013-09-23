@@ -1124,7 +1124,7 @@ int ustcomm_register_channel(int sock,
  * Returns 0 on success, negative error value on error.
  */
 int ustcomm_instrument_probe(int sock,
-	struct tracepoint* tracepoint,
+	struct lttng_ust_instrument_tracepoint_attr *tracepoint,
 	const struct lttng_ust_event *uevent)	/* userspace event */
 {
 	ssize_t len;
@@ -1142,7 +1142,8 @@ int ustcomm_instrument_probe(int sock,
 	msg.m.instrumentation = uevent->instrumentation;
 	strncpy(msg.m.name, uevent->name, LTTNG_UST_SYM_NAME_LEN);
 	msg.m.name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
-	msg.m.tracepoint = tracepoint;
+	memcpy(&msg.m.tracepoint, tracepoint,
+			sizeof(struct lttng_ust_instrument_tracepoint_attr));
 	msg.m.addr = uevent->u.probe.addr;
 	strncpy(msg.m.symbol, uevent->u.probe.symbol_name, LTTNG_UST_SYM_NAME_LEN);
 	msg.m.symbol[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
