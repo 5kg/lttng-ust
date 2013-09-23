@@ -878,10 +878,13 @@ long lttng_channel_cmd(int objd, unsigned int cmd, unsigned long arg,
 
 		switch (event_param->instrumentation) {
 			case LTTNG_UST_PROBE:
+				return lttng_abi_create_enabler(objd, event_param,
+						owner, LTTNG_ENABLER_PROBE);
 			case LTTNG_UST_FUNCTION:
 				return lttng_abi_create_enabler(objd, event_param,
-						owner, LTTNG_ENABLER_INSTRUMENT);
-			default: break;
+						owner, LTTNG_ENABLER_FUNCTION);
+			default:
+				break;
 		}
 
 		if (event_param->name[strlen(event_param->name) - 1] == '*') {

@@ -300,7 +300,8 @@ struct lttng_probe_desc {
 enum lttng_enabler_type {
 	LTTNG_ENABLER_WILDCARD,
 	LTTNG_ENABLER_EVENT,
-	LTTNG_ENABLER_INSTRUMENT,
+	LTTNG_ENABLER_PROBE,
+	LTTNG_ENABLER_FUNCTION,
 };
 
 /*

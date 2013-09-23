@@ -480,11 +480,9 @@ struct tracepoint *lttng_create_tracepoint_if_missing(const char *name)
 		/* TODO: When and where to free ? */
 		struct lttng_probe_desc *probe_desc =
 			zmalloc(sizeof(struct lttng_probe_desc));
-
 		probe_desc->provider = provider;
-		/* TODO: When and where to free ? */
 		probe_desc->event_desc =
-			zmalloc(sizeof(const struct lttng_event_desc **));
+			zmalloc(sizeof(const struct lttng_event_desc *));
 		probe_desc->event_desc[0] = event_desc;
 		probe_desc->nr_events = 1;
 		probe_desc->major = LTTNG_UST_PROVIDER_MAJOR;
@@ -591,8 +589,18 @@ int lttng_desc_match_event_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
 	assert((enabler->type == LTTNG_ENABLER_EVENT)
-			|| (enabler->type == LTTNG_ENABLER_INSTRUMENT));
+			|| (enabler->type == LTTNG_ENABLER_PROBE));
 	if (strcmp(desc->name, enabler->event_param.name))
+		return 0;
+	return lttng_desc_loglevel_match_enabler(desc, enabler);
+}
+
+static
+int lttng_desc_match_function_enabler(const struct lttng_event_desc *desc,
+		struct lttng_enabler *enabler)
+{
+	assert(enabler->type == LTTNG_ENABLER_FUNCTION);
+	if (strstr(desc->name, enabler->event_param.name) != desc->name)
 		return 0;
 	return lttng_desc_loglevel_match_enabler(desc, enabler);
 }
@@ -630,8 +638,10 @@ int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 	case LTTNG_ENABLER_WILDCARD:
 		return lttng_desc_match_wildcard_enabler(desc, enabler);
 	case LTTNG_ENABLER_EVENT:
-	case LTTNG_ENABLER_INSTRUMENT:
+	case LTTNG_ENABLER_PROBE:
 		return lttng_desc_match_event_enabler(desc, enabler);
+	case LTTNG_ENABLER_FUNCTION:
+		return lttng_desc_match_function_enabler(desc, enabler);
 	default:
 		return -EINVAL;
 	}
@@ -685,15 +695,18 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 	struct lttng_probe_desc *probe_desc;
 	const struct lttng_event_desc *desc;
 	struct lttng_event *event;
-	int i, ret;
+	int i;
 	struct cds_list_head *probe_list;
 
-	if ((enabler->type == LTTNG_ENABLER_INSTRUMENT)
-			&& check_instrument_object_path(enabler)) {
-		ret = lttng_probe_instrument(&enabler->event_param, enabler->chan);
-		if (ret) {
+	switch (enabler->type) {
+	case LTTNG_ENABLER_PROBE:
+	case LTTNG_ENABLER_FUNCTION:
+		if (!check_instrument_object_path(enabler) ||
+				lttng_probe_instrument(&enabler->event_param, enabler->chan)) {
 			goto error;
 		}
+	default:
+		break;
 	}
 
 	probe_list = lttng_get_probe_list_head();
