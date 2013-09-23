@@ -454,8 +454,11 @@ struct tracepoint *lttng_create_tracepoint_if_missing(const char *name)
 	tracepoint = tracepoint_find_by_name(name);
 	if (!tracepoint) {
 		size_t provider_len = strchr(name, ':') - name;
-		char provider[LTTNG_UST_SYM_NAME_LEN];
+		char *provider;
 		const char *signature = name + provider_len + 1;
+
+		/* TODO: When and where to free */
+		provider = malloc(provider_len);
 		memcpy(provider, name, provider_len);
 		provider[provider_len] = '\0';
 
@@ -479,18 +482,21 @@ struct tracepoint *lttng_create_tracepoint_if_missing(const char *name)
 		event_desc->nr_fields = 0;
 		event_desc->signature = signature;
 
-		struct lttng_probe_desc probe_desc = {
-			.provider = provider,
-			.event_desc = (const struct lttng_event_desc **) &event_desc,
-			.nr_events = 1,
-			.head = { NULL, NULL },
-			.lazy_init_head = { NULL, NULL },
-			.lazy = 0,
-			.major = LTTNG_UST_PROVIDER_MAJOR,
-			.minor = LTTNG_UST_PROVIDER_MINOR,
-		};
+		/* TODO: When and where to free ? */
+		struct lttng_probe_desc *probe_desc =
+			zmalloc(sizeof(struct lttng_probe_desc));
 
-		lttng_probe_register(&probe_desc);
+		probe_desc->provider = provider;
+		/* TODO: When and where to free ? */
+		probe_desc->event_desc =
+			zmalloc(sizeof(const struct lttng_event_desc **));
+		probe_desc->event_desc[0] = event_desc;
+		probe_desc->nr_events = 1;
+		probe_desc->major = LTTNG_UST_PROVIDER_MAJOR;
+		probe_desc->minor = LTTNG_UST_PROVIDER_MINOR;
+		probe_desc->type = LTTNG_PROBE_INSTRUMENT;
+
+		lttng_probe_register(probe_desc);
 	}
 
 	return tracepoint;
