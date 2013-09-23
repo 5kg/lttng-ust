@@ -487,6 +487,7 @@ struct tracepoint *lttng_create_tracepoint_if_missing(const char *name)
 			.major = LTTNG_UST_PROVIDER_MAJOR,
 			.minor = LTTNG_UST_PROVIDER_MINOR,
 		};
+
 		lttng_probe_register(&probe_desc);
 	}
 
@@ -502,22 +503,28 @@ int lttng_probe_instrument(const struct lttng_ust_event *uevent,
 {
 	struct lttng_session *session = chan->session;
 	struct lttng_ust_instrument_tracepoint_attr tracepoint;
-	char tracepoint_name[LTTNG_UST_SYM_NAME_LEN];
-	int ret = 0, notify_socket;
+	char *tracepoint_name_entry, *tracepoint_name_exit;
+	int ret = 0, notify_socket, name_len;
 
 	switch (uevent->instrumentation) {
 	case LTTNG_UST_PROBE:
 		tracepoint.u.probe = lttng_create_tracepoint_if_missing(uevent->name);
 		break;
 	case LTTNG_UST_FUNCTION:
-		strcpy(tracepoint_name, uevent->name);
-		strcat(tracepoint_name, "_entry");
+		name_len = strlen(uevent->name);
+		/* TODO: When and where to free ? */
+		tracepoint_name_entry = malloc(name_len + sizeof("_entry"));
+		strcpy(tracepoint_name_entry, uevent->name);
+		strcat(tracepoint_name_entry, "_entry");
 		tracepoint.u.function.entry =
-			lttng_create_tracepoint_if_missing(tracepoint_name);
-		strcpy(tracepoint_name, uevent->name);
-		strcat(tracepoint_name, "_exit");
+			lttng_create_tracepoint_if_missing(tracepoint_name_entry);
+
+		/* TODO: When and where to free ? */
+		tracepoint_name_exit = malloc(name_len + sizeof("_exit"));
+		strcpy(tracepoint_name_exit, uevent->name);
+		strcat(tracepoint_name_exit, "_exit");
 		tracepoint.u.function.exit =
-			lttng_create_tracepoint_if_missing(tracepoint_name);
+			lttng_create_tracepoint_if_missing(tracepoint_name_exit);
 		break;
 	default:
 		ERR("Undefined instrumentation type");
