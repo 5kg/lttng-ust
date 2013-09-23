@@ -1841,7 +1841,7 @@ int ustctl_reply_register_channel(int sock,
 int ustctl_recv_instrument_probe(int sock,
 	char *object_path,
 	char *name,
-	struct tracepoint **tracepoint,
+	struct lttng_ust_instrument_tracepoint_attr *tracepoint,
 	enum lttng_ust_instrumentation *instrumentation,
 	uint64_t *addr,
 	char *symbol,
@@ -1861,6 +1861,8 @@ int ustctl_recv_instrument_probe(int sock,
 	strncpy(name, msg.name, LTTNG_UST_SYM_NAME_LEN);
 	name[LTTNG_UST_SYM_NAME_LEN - 1] = '\0';
 	*tracepoint = msg.tracepoint;
+	memcpy(tracepoint, &msg.tracepoint,
+		sizeof(struct lttng_ust_instrument_tracepoint_attr));
 	*instrumentation = msg.instrumentation;
 	*addr = msg.addr;
 	strncpy(symbol, msg.symbol, LTTNG_UST_SYM_NAME_LEN);

@@ -20,7 +20,6 @@
 #define _LTTNG_UST_CTL_H
 
 #include <lttng/ust-abi.h>
-#include <lttng/tracepoint-types.h>
 #include <sys/types.h>
 
 #ifndef LTTNG_UST_UUID_LEN
@@ -405,7 +404,7 @@ int ustctl_reply_register_channel(int sock,
 int ustctl_recv_instrument_probe(int sock,
 	char *object_path,
 	char *name,
-	struct tracepoint **tracepoint,
+	struct lttng_ust_instrument_tracepoint_attr *tracepoint,
 	enum lttng_ust_instrumentation *instrumentation,
 	uint64_t *addr,
 	char *symbol,
