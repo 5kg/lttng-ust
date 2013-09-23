@@ -23,6 +23,7 @@
 #include <lttng/tracepoint-types.h>
 #include <lttng/ust-events.h>
 #include <lttng/ringbuffer-config.h>
+#include <lttng/ust-abi.h>
 
 void lttng_dynamic_probe_callback(struct lttng_event *event)
 {
@@ -38,7 +39,7 @@ void lttng_dynamic_probe_callback(struct lttng_event *event)
 	chan->ops->event_commit(&ctx);
 }
 
-void tracepoint_of(const struct tracepoint* tracepoint)
+void LTTNG_DYNAMIC_TRACEPOINT(const struct tracepoint* tracepoint)
 {
 	if (caa_unlikely(tracepoint->state)) {
 		struct tracepoint_probe *tp_probe = tracepoint->probes;
