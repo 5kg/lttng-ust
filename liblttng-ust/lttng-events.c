@@ -32,6 +32,7 @@
 #include <stddef.h>
 #include <inttypes.h>
 #include <time.h>
+#include <link.h>
 #include <lttng/ust-endian.h>
 #include "clock.h"
 
@@ -663,16 +664,29 @@ int lttng_event_match_enabler(struct lttng_event *event,
 		return 0;
 }
 
+int check_shared_lib_cb(struct dl_phdr_info *info, size_t size, void *path)
+{
+	return strstr((char *) path, info->dlpi_name) != NULL;
+}
+
+/*
+ * Check if instrument target path match application's execute path or shared
+ * libraries loaded.
+ *
+ * Return 0 if not target path does not match.
+ */
 static
-int check_instrument_object_path(struct lttng_enabler *enabler)
+int check_instrument_target_path(struct lttng_enabler *enabler)
 {
 	char exec_path[PATH_MAX];
 
 	if (lttng_ust_getexecpath(exec_path) == -1)
 		return 0;
-	if (strcmp(exec_path, enabler->event_param.target->path))
-		return 0;
-	return 1;
+	if (!strcmp(exec_path, enabler->event_param.target->path))
+		return 1;
+
+	return dl_iterate_phdr(check_shared_lib_cb,
+			enabler->event_param.target->path);
 }
 
 static
@@ -706,9 +720,9 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 	switch (enabler->type) {
 	case LTTNG_ENABLER_PROBE:
 	case LTTNG_ENABLER_FUNCTION:
-		if (!check_instrument_object_path(enabler) ||
+		if (!check_instrument_target_path(enabler) ||
 				lttng_probe_instrument(&enabler->event_param, enabler->chan)) {
-			goto error;
+			return;
 		}
 	default:
 		break;
@@ -760,9 +774,6 @@ void lttng_create_event_if_missing(struct lttng_enabler *enabler)
 			}
 		}
 	}
-
-error:
-	return;
 }
 
 /*
