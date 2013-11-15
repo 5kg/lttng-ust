@@ -293,6 +293,8 @@ int lttng_session_enable(struct lttng_session *session)
 	/* Set atomically the state to "active" */
 	CMM_ACCESS_ONCE(session->active) = 1;
 	CMM_ACCESS_ONCE(session->been_active) = 1;
+
+	lttng_ust_sockinfo_session_enabled(session->owner, session);
 end:
 	return ret;
 }
@@ -491,6 +493,31 @@ static
 int lttng_desc_match_enabler(const struct lttng_event_desc *desc,
 		struct lttng_enabler *enabler)
 {
+	struct lttng_ust_excluder_node *excluder;
+
+	/* If event matches with an excluder, return 'does not match' */
+	cds_list_for_each_entry(excluder, &enabler->excluder_head, node) {
+		int count;
+
+		for (count = 0; count < excluder->excluder.count; count++) {
+			int found, len;
+			char *excluder_name;
+
+			excluder_name = (char *) (excluder->excluder.names)
+					+ count * LTTNG_UST_SYM_NAME_LEN;
+			len = strnlen(excluder_name, LTTNG_UST_SYM_NAME_LEN);
+			if (len > 0 && excluder_name[len - 1] == '*') {
+				found = !strncmp(desc->name, excluder_name,
+						len - 1);
+			} else {
+				found = !strncmp(desc->name, excluder_name,
+						LTTNG_UST_SYM_NAME_LEN - 1);
+			}
+			if (found) {
+				return 0;
+			}
+		}
+	}
 	switch (enabler->type) {
 	case LTTNG_ENABLER_WILDCARD:
 		return lttng_desc_match_wildcard_enabler(desc, enabler);
@@ -687,6 +714,7 @@ struct lttng_enabler *lttng_enabler_create(enum lttng_enabler_type type,
 		return NULL;
 	enabler->type = type;
 	CDS_INIT_LIST_HEAD(&enabler->filter_bytecode_head);
+	CDS_INIT_LIST_HEAD(&enabler->excluder_head);
 	memcpy(&enabler->event_param, event_param,
 		sizeof(enabler->event_param));
 	enabler->chan = chan;
@@ -716,6 +744,15 @@ int lttng_enabler_attach_bytecode(struct lttng_enabler *enabler,
 {
 	bytecode->enabler = enabler;
 	cds_list_add_tail(&bytecode->node, &enabler->filter_bytecode_head);
+	lttng_session_lazy_sync_enablers(enabler->chan->session);
+	return 0;
+}
+
+int lttng_enabler_attach_exclusion(struct lttng_enabler *enabler,
+		struct lttng_ust_excluder_node *excluder)
+{
+	excluder->enabler = enabler;
+	cds_list_add_tail(&excluder->node, &enabler->excluder_head);
 	lttng_session_lazy_sync_enablers(enabler->chan->session);
 	return 0;
 }
@@ -767,11 +804,18 @@ static
 void lttng_enabler_destroy(struct lttng_enabler *enabler)
 {
 	struct lttng_ust_filter_bytecode_node *filter_node, *tmp_filter_node;
+	struct lttng_ust_excluder_node *excluder_node, *tmp_excluder_node;
 
 	/* Destroy filter bytecode */
 	cds_list_for_each_entry_safe(filter_node, tmp_filter_node,
 			&enabler->filter_bytecode_head, node) {
 		free(filter_node);
+	}
+
+	/* Destroy excluders */
+	cds_list_for_each_entry_safe(excluder_node, tmp_excluder_node,
+			&enabler->excluder_head, node) {
+		free(excluder_node);
 	}
 
 	/* Destroy contexts */

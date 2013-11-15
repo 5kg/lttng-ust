@@ -34,6 +34,7 @@
 #include <time.h>
 #include <assert.h>
 #include <signal.h>
+#include <dlfcn.h>
 #include <urcu/uatomic.h>
 #include <urcu/futex.h>
 #include <urcu/compiler.h>
@@ -106,6 +107,7 @@ struct sock_info {
 
 	char wait_shm_path[PATH_MAX];
 	char *wait_shm_mmap;
+	struct lttng_session *session_enabled;
 };
 
 /* Socket from app (connect) to session daemon (listen) for communication */
@@ -122,6 +124,8 @@ struct sock_info global_apps = {
 	.notify_socket = -1,
 
 	.wait_shm_path = "/" LTTNG_UST_WAIT_FILENAME,
+
+	.session_enabled = NULL,
 };
 
 /* TODO: allow global_apps_sock_path override */
@@ -135,6 +139,8 @@ struct sock_info local_apps = {
 
 	.socket = -1,
 	.notify_socket = -1,
+
+	.session_enabled = NULL,
 };
 
 static int wait_poll_fallback;
@@ -172,10 +178,12 @@ static const char *cmd_name_mapping[] = {
 
 	/* Event FD commands */
 	[ LTTNG_UST_FILTER ] = "Create Filter",
+	[ LTTNG_UST_EXCLUSION ] = "Add exclusions to event",
 };
 
 static const char *str_timeout;
 static int got_timeout_env;
+static void *ust_baddr_handle;
 
 extern void lttng_ring_buffer_client_overwrite_init(void);
 extern void lttng_ring_buffer_client_overwrite_rt_init(void);
@@ -232,6 +240,39 @@ void print_cmd(int cmd, int handle)
 	DBG("Message Received \"%s\" (%d), Handle \"%s\" (%d)",
 		cmd_name, cmd,
 		lttng_ust_obj_get_name(handle), handle);
+}
+
+static
+void *lttng_ust_baddr_handle(void)
+{
+	if (!ust_baddr_handle) {
+		ust_baddr_handle = dlopen(
+			"liblttng-ust-baddr.so.0", RTLD_NOW | RTLD_GLOBAL);
+		if (ust_baddr_handle == NULL)
+			ERR("%s", dlerror());
+	}
+	return ust_baddr_handle;
+}
+
+static
+int lttng_ust_baddr_statedump(struct lttng_session *session)
+{
+	static
+	int (*lttng_ust_baddr_init_fn)(struct lttng_session *);
+
+	if (!lttng_ust_baddr_init_fn) {
+		void *baddr_handle = lttng_ust_baddr_handle();
+		if (baddr_handle) {
+			lttng_ust_baddr_init_fn = dlsym(baddr_handle,
+				"lttng_ust_baddr_statedump");
+			if (lttng_ust_baddr_init_fn == NULL)
+				ERR("%s", dlerror());
+		}
+		if (!lttng_ust_baddr_init_fn)
+			return -1;
+	}
+
+	return lttng_ust_baddr_init_fn(session);
 }
 
 static
@@ -487,6 +528,68 @@ int handle_message(struct sock_info *sock_info,
 		}
 		break;
 	}
+	case LTTNG_UST_EXCLUSION:
+	{
+		/* Receive exclusion names */
+		struct lttng_ust_excluder_node *node;
+		unsigned int count;
+
+		count = lum->u.exclusion.count;
+		if (count == 0) {
+			/* There are no names to read */
+			ret = 0;
+			goto error;
+		}
+		node = zmalloc(sizeof(*node) +
+				count * LTTNG_UST_SYM_NAME_LEN);
+		if (!node) {
+			ret = -ENOMEM;
+			goto error;
+		}
+		node->excluder.count = count;
+		len = ustcomm_recv_unix_sock(sock, node->excluder.names,
+				count * LTTNG_UST_SYM_NAME_LEN);
+		switch (len) {
+		case 0:	/* orderly shutdown */
+			ret = 0;
+			free(node);
+			goto error;
+		default:
+			if (len == count * LTTNG_UST_SYM_NAME_LEN) {
+				DBG("Exclusion data received");
+				break;
+			} else if (len < 0) {
+				DBG("Receive failed from lttng-sessiond with errno %d", (int) -len);
+				if (len == -ECONNRESET) {
+					ERR("%s remote end closed connection", sock_info->name);
+					ret = len;
+					free(node);
+					goto error;
+				}
+				ret = len;
+				free(node);
+				goto end;
+			} else {
+				DBG("Incorrect exclusion data message size: %zd", len);
+				ret = -EINVAL;
+				free(node);
+				goto end;
+			}
+		}
+		if (ops->cmd) {
+			ret = ops->cmd(lum->handle, lum->cmd,
+					(unsigned long) node,
+					&args, sock_info);
+			if (ret) {
+				free(node);
+			}
+			/* Don't free exclusion data if everything went fine. */
+		} else {
+			ret = -ENOSYS;
+			free(node);
+		}
+		break;
+	}
 	case LTTNG_UST_CHANNEL:
 	{
 		void *chan_data;
@@ -705,6 +808,30 @@ int get_wait_shm(struct sock_info *sock_info, size_t mmap_size)
 	 */
 	wait_shm_fd = shm_open(sock_info->wait_shm_path, O_RDONLY, 0);
 	if (wait_shm_fd >= 0) {
+		int32_t tmp_read;
+		ssize_t len;
+		size_t bytes_read = 0;
+
+		/*
+		 * Try to read the fd. If unable to do so, try opening
+		 * it in write mode.
+		 */
+		do {
+			len = read(wait_shm_fd,
+				&((char *) &tmp_read)[bytes_read],
+				sizeof(tmp_read) - bytes_read);
+			if (len > 0) {
+				bytes_read += len;
+			}
+		} while ((len < 0 && errno == EINTR)
+			|| (len > 0 && bytes_read < sizeof(tmp_read)));
+		if (bytes_read != sizeof(tmp_read)) {
+			ret = close(wait_shm_fd);
+			if (ret) {
+				ERR("close wait_shm_fd");
+			}
+			goto open_write;
+		}
 		goto end;
 	} else if (wait_shm_fd < 0 && errno != ENOENT) {
 		/*
@@ -715,9 +842,11 @@ int get_wait_shm(struct sock_info *sock_info, size_t mmap_size)
 		ERR("Error opening shm %s", sock_info->wait_shm_path);
 		goto end;
 	}
+
+open_write:
 	/*
-	 * If the open failed because the file did not exist, try
-	 * creating it ourself.
+	 * If the open failed because the file did not exist, or because
+	 * the file was not truncated yet, try creating it ourself.
 	 */
 	URCU_TLS(lttng_ust_nest_count)++;
 	pid = fork();
@@ -912,8 +1041,6 @@ void *ust_listener_thread(void *arg)
 {
 	struct sock_info *sock_info = arg;
 	int sock, ret, prev_connect_failed = 0, has_waited = 0;
-	int open_sock[2];
-	int i;
 	long timeout;
 
 	/* Restart trying to connect to the session daemon */
@@ -951,55 +1078,35 @@ restart:
 		sock_info->notify_socket = -1;
 	}
 
-	/* Register */
-	for (i = 0; i < 2; i++) {
-		ret = ustcomm_connect_unix_sock(sock_info->sock_path);
-		if (ret < 0) {
-			DBG("Info: sessiond not accepting connections to %s apps socket", sock_info->name);
-			prev_connect_failed = 1;
+	/*
+	 * Register. We need to perform both connect and sending
+	 * registration message before doing the next connect otherwise
+	 * we may reach unix socket connect queue max limits and block
+	 * on the 2nd connect while the session daemon is awaiting the
+	 * first connect registration message.
+	 */
+	/* Connect cmd socket */
+	ret = ustcomm_connect_unix_sock(sock_info->sock_path);
+	if (ret < 0) {
+		DBG("Info: sessiond not accepting connections to %s apps socket", sock_info->name);
+		prev_connect_failed = 1;
 
-			ust_lock();
+		ust_lock();
 
-			if (lttng_ust_comm_should_quit) {
-				goto quit;
-			}
-
-			/*
-			 * If we cannot find the sessiond daemon, don't delay
-			 * constructor execution.
-			 */
-			ret = handle_register_done(sock_info);
-			assert(!ret);
-			ust_unlock();
-			goto restart;
+		if (lttng_ust_comm_should_quit) {
+			goto quit;
 		}
-		open_sock[i] = ret;
-	}
 
-	sock_info->socket = open_sock[0];
-	sock_info->notify_socket = open_sock[1];
-
-	timeout = get_notify_sock_timeout();
-	if (timeout >= 0) {
 		/*
-		 * Give at least 10ms to sessiond to reply to
-		 * notifications.
+		 * If we cannot find the sessiond daemon, don't delay
+		 * constructor execution.
 		 */
-		if (timeout < 10)
-			timeout = 10;
-		ret = ustcomm_setsockopt_rcv_timeout(sock_info->notify_socket,
-				timeout);
-		if (ret < 0) {
-			WARN("Error setting socket receive timeout");
-		}
-		ret = ustcomm_setsockopt_snd_timeout(sock_info->notify_socket,
-				timeout);
-		if (ret < 0) {
-			WARN("Error setting socket send timeout");
-		}
-	} else if (timeout < -1) {
-		WARN("Unsuppoorted timeout value %ld", timeout);
+		ret = handle_register_done(sock_info);
+		assert(!ret);
+		ust_unlock();
+		goto restart;
 	}
+	sock_info->socket = ret;
 
 	ust_lock();
 
@@ -1035,6 +1142,60 @@ restart:
 		ust_unlock();
 		goto restart;
 	}
+
+	ust_unlock();
+
+	/* Connect notify socket */
+	ret = ustcomm_connect_unix_sock(sock_info->sock_path);
+	if (ret < 0) {
+		DBG("Info: sessiond not accepting connections to %s apps socket", sock_info->name);
+		prev_connect_failed = 1;
+
+		ust_lock();
+
+		if (lttng_ust_comm_should_quit) {
+			goto quit;
+		}
+
+		/*
+		 * If we cannot find the sessiond daemon, don't delay
+		 * constructor execution.
+		 */
+		ret = handle_register_done(sock_info);
+		assert(!ret);
+		ust_unlock();
+		goto restart;
+	}
+	sock_info->notify_socket = ret;
+
+	timeout = get_notify_sock_timeout();
+	if (timeout >= 0) {
+		/*
+		 * Give at least 10ms to sessiond to reply to
+		 * notifications.
+		 */
+		if (timeout < 10)
+			timeout = 10;
+		ret = ustcomm_setsockopt_rcv_timeout(sock_info->notify_socket,
+				timeout);
+		if (ret < 0) {
+			WARN("Error setting socket receive timeout");
+		}
+		ret = ustcomm_setsockopt_snd_timeout(sock_info->notify_socket,
+				timeout);
+		if (ret < 0) {
+			WARN("Error setting socket send timeout");
+		}
+	} else if (timeout < -1) {
+		WARN("Unsupported timeout value %ld", timeout);
+	}
+
+	ust_lock();
+
+	if (lttng_ust_comm_should_quit) {
+		goto quit;
+	}
+
 	ret = register_to_sessiond(sock_info->notify_socket,
 			USTCTL_SOCKET_NOTIFY);
 	if (ret < 0) {
@@ -1085,6 +1246,13 @@ restart:
 			ret = handle_message(sock_info, sock, &lum);
 			if (ret) {
 				ERR("Error handling message for %s socket", sock_info->name);
+			} else {
+				struct lttng_session *session =
+					sock_info->session_enabled;
+				if (session) {
+					sock_info->session_enabled = NULL;
+					lttng_ust_baddr_statedump(session);
+				}
 			}
 			continue;
 		default:
@@ -1321,6 +1489,12 @@ void __attribute__((destructor)) lttng_ust_exit(void)
 	 * cleanup the threads if there are stalled in a syscall.
 	 */
 	lttng_ust_cleanup(1);
+
+	if (ust_baddr_handle) {
+		int ret = dlclose(ust_baddr_handle);
+		if (ret)
+			ERR("%s", dlerror());
+	}
 }
 
 /*
@@ -1397,4 +1571,11 @@ void ust_after_fork_child(sigset_t *restore_sigset)
 	/* Release mutexes and reenable signals */
 	ust_after_fork_common(restore_sigset);
 	lttng_ust_init();
+}
+
+void lttng_ust_sockinfo_session_enabled(void *owner,
+		struct lttng_session *session_enabled)
+{
+	struct sock_info *sock_info = owner;
+	sock_info->session_enabled = session_enabled;
 }

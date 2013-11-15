@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([lttng-ust],[2.3.0-rc1],[mathieu dot desnoyers at efficios dot com])
+AC_INIT([lttng-ust],[2.3.0],[mathieu dot desnoyers at efficios dot com])
 
 # Following the numbering scheme proposed by libtool for the library version
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
@@ -209,6 +209,9 @@ AC_ARG_WITH([java-jdk],
 	[JAVA_JDK=$withval],
 	[JAVA_JDK=""]
 )
+AM_CONDITIONAL([HAVE_JAVA_JDK], [test $JAVA_JDK], [Java JDK path])
+AC_SUBST([JAVA_JDK])
+
 AS_IF([test $JAVA_JDK],[
 	AS_IF([test -d $JAVA_JDK],[
                 AC_MSG_RESULT([using Java includes in $JAVA_SDK])
@@ -282,7 +285,10 @@ AC_CONFIG_FILES([
 	liblttng-ust/Makefile
 	liblttng-ust-ctl/Makefile
 	liblttng-ust-fork/Makefile
+	liblttng-ust-baddr/Makefile
+	liblttng-ust-dl/Makefile
 	liblttng-ust-java/Makefile
+	liblttng-ust-jul/Makefile
 	liblttng-ust-libc-wrapper/Makefile
 	liblttng-ust-cyg-profile/Makefile
 	tools/Makefile
@@ -293,6 +299,7 @@ AC_CONFIG_FILES([
 	tests/snprintf/Makefile
 	tests/benchmark/Makefile
 	tests/utils/Makefile
+	tests/java-jul/Makefile
 	lttng-ust.pc
 ])
 
