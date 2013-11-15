@@ -661,7 +661,7 @@ int lttng_event_match_enabler(struct lttng_event *event,
 
 int check_shared_lib_cb(struct dl_phdr_info *info, size_t size, void *path)
 {
-	return strstr((char *) path, info->dlpi_name) != NULL;
+	return !strcmp((char *) path, info->dlpi_name);
 }
 
 /*
