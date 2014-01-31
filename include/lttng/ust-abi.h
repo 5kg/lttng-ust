@@ -99,16 +99,20 @@ struct lttng_ust_stream {
 } LTTNG_PACKED;
 
 /*
- * Either addr is used, or symbol_name and offset.
+ * Event probe.
+ *
+ * Either addr is used or symbol_name and offset.
+ *
+ * The structures should be initialized to zero before use.
  */
-#define LTTNG_UST_PROBE_PADDING	16
-struct lttng_ust_probe {
+#define LTTNG_UST_EVENT_PROBE_PADDING      16
+struct lttng_ust_event_probe_attr {
 	uint64_t addr;
 
 	uint64_t offset;
 	char symbol_name[LTTNG_UST_SYM_NAME_LEN];
 
-	char padding[LTTNG_UST_PROBE_PADDING];
+	char padding[LTTNG_UST_EVENT_PROBE_PADDING];
 } LTTNG_PACKED;
 
 /*
@@ -136,7 +140,7 @@ struct lttng_ust_event {
 
 	/* Per instrumentation type configuration */
 	union {
-		struct lttng_ust_probe probe;
+		struct lttng_ust_event_probe_attr probe;
 		char padding[LTTNG_UST_EVENT_PADDING2];
 	} u;
 } LTTNG_PACKED;
