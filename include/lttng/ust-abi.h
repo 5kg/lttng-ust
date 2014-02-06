@@ -115,19 +115,7 @@ struct lttng_ust_event_probe_attr {
 	char padding[LTTNG_UST_EVENT_PROBE_PADDING];
 } LTTNG_PACKED;
 
-/*
- * Instrument target
- */
-#define LTTNG_UST_TARGET_PADDING	32
-struct lttng_ust_target {
-	uint32_t path_len;
-
-	char padding[LTTNG_UST_TARGET_PADDING];
-
-	char path[0];
-} LTTNG_PACKED;
-
-#define LTTNG_UST_EVENT_PADDING1	(16 - sizeof(struct lttng_ust_target *))
+#define LTTNG_UST_EVENT_PADDING1	16
 #define LTTNG_UST_EVENT_PADDING2	(LTTNG_UST_SYM_NAME_LEN + 32)
 struct lttng_ust_event {
 	enum lttng_ust_instrumentation instrumentation;
@@ -135,7 +123,6 @@ struct lttng_ust_event {
 
 	enum lttng_ust_loglevel_type loglevel_type;
 	int loglevel;	/* value, -1: all */
-	struct lttng_ust_target *target;
 	char padding[LTTNG_UST_EVENT_PADDING1];
 
 	/* Per instrumentation type configuration */
@@ -264,6 +251,13 @@ struct lttng_ust_event_exclusion {
 	uint32_t count;
 	char padding[LTTNG_UST_EXCLUSION_PADDING];
 	char names[LTTNG_UST_SYM_NAME_LEN][0];
+} LTTNG_PACKED;
+
+#define LTTNG_UST_TARGET_PADDING	32
+struct lttng_ust_event_target {
+	uint32_t path_len;
+	char padding[LTTNG_UST_TARGET_PADDING];
+	char path[0];
 } LTTNG_PACKED;
 
 struct lttng_ust_instrument_function_attr {
