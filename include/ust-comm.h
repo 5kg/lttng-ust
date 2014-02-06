@@ -95,7 +95,7 @@ struct ustcomm_ust_msg {
 			uint32_t count;	/* how many names follow */
 		} LTTNG_PACKED exclusion;
 		struct {
-			uint32_t data_size;	/* following target data */
+			uint32_t path_len;	/* length of target path */
 		} LTTNG_PACKED target;
 		char padding[USTCOMM_MSG_PADDING2];
 	} u;

@@ -225,7 +225,7 @@ static const char *cmd_name_mapping[] = {
 	/* Event FD commands */
 	[ LTTNG_UST_FILTER ] = "Create Filter",
 	[ LTTNG_UST_EXCLUSION ] = "Add exclusions to event",
-	[ LTTNG_UST_TARGET ] = "Create Target",
+	[ LTTNG_UST_TARGET ] = "Add instrument target to event",
 };
 
 static const char *str_timeout;
