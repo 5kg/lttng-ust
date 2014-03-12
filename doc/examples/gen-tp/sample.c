@@ -23,6 +23,7 @@
 
 #include <unistd.h>
 
+#define TRACEPOINT_DEFINE
 #include "sample_tracepoint.h"
 int main(int argc, char **argv)
 {

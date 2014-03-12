@@ -150,8 +150,8 @@ extern "C" {
  * between caller's ip addresses within the probe using the return
  * address.
  */
-#define _DECLARE_TRACEPOINT(_provider, _name, ...)			 		\
-extern struct tracepoint __tracepoint_##_provider##___##_name;				\
+#if defined(TRACEPOINT_DEFINE)
+#define _DECLARE_TRACEPOINT_CB(_provider, _name, ...)			 		\
 static inline __attribute__((always_inline)) lttng_ust_notrace				\
 void __tracepoint_cb_##_provider##___##_name(_TP_ARGS_PROTO(__VA_ARGS__));		\
 static											\
@@ -174,7 +174,14 @@ void __tracepoint_cb_##_provider##___##_name(_TP_ARGS_PROTO(__VA_ARGS__))		\
 	} while ((++__tp_probe)->func);							\
 end:											\
 	tp_rcu_read_unlock_bp();							\
-}											\
+}
+#else
+#define _DECLARE_TRACEPOINT_CB(_provider, _name, ...)
+#endif
+
+#define _DECLARE_TRACEPOINT(_provider, _name, ...)			 		\
+extern struct tracepoint __tracepoint_##_provider##___##_name;				\
+_DECLARE_TRACEPOINT_CB(_provider, _name, __VA_ARGS__)			 		\
 static inline lttng_ust_notrace								\
 void __tracepoint_register_##_provider##___##_name(char *name,				\
 		void (*func)(void), void *data);					\

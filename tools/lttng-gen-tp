@@ -69,7 +69,6 @@ class CFile:
 /*
  * The header containing our TRACEPOINT_EVENTs.
  */
-#define TRACEPOINT_DEFINE
 #include "{headerFilename}"
 """
     def __init__(self, filename, template):
